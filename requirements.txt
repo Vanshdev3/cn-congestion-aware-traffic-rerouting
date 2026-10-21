@@ -1,0 +1,4 @@
+# Install this file inside the Linux environment used for the project.
+# Mininet, Open vSwitch, and Tkinter are installed by the operating system.
+os-ken>=3.0,<5.0
+
