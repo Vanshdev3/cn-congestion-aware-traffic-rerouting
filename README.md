@@ -46,6 +46,11 @@ duplicates and out-of-order arrivals, and writes a live JSON snapshot. Final
 loss is calculated only after the sender summary is available, so a temporary
 gap does not count as a lost packet.
 
+The OS-Ken behavior and its verification steps are described in
+[docs/CONTROLLER.md](docs/CONTROLLER.md). The controller and experiment manager
+share small JSON files under `run/`, which are local runtime state and are not
+committed to Git.
+
 ## Getting started
 
 Read [docs/SETUP.md](docs/SETUP.md) before installing anything. The network
