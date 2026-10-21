@@ -65,9 +65,22 @@ version, record the package version shown by `apt` or `pip` instead.
 
 ## Start the project later
 
-The exact commands for the custom topology, controller, traffic sender, and
-dashboard will be added as those milestones are implemented and verified.
-Do not use guessed commands copied from an earlier plan.
+Start the controller and experiment manager in separate Linux terminals:
+
+```bash
+sudo .venv/bin/osken-manager --ofp-tcp-listen-port 6653 controller.py
+sudo python3 experiment_manager.py
+```
+
+Once both are running, start the dashboard in a third terminal:
+
+```bash
+python3 dashboard.py
+```
+
+The manager starts Mininet from the dashboard. Do not also run
+`start_network.py` at the same time; both programs would try to create the lab
+network.
 
 ## Wireshark note
 

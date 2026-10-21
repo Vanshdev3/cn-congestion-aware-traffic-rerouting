@@ -37,16 +37,34 @@ def read_sender_summary(path):
         return None
 
 
-def receive_packets(bind_address, port, stats_file, sender_summary_file, test_id):
+class SequenceTracker:
+    """Keep unique packets separate from duplicates and late arrivals."""
+
+    def __init__(self):
+        self.sequences = set()
+        self.duplicate_packets = 0
+        self.out_of_order_packets = 0
+        self.highest_sequence = -1
+
+    def add(self, sequence):
+        if sequence in self.sequences:
+            self.duplicate_packets += 1
+            return
+        if sequence < self.highest_sequence:
+            self.out_of_order_packets += 1
+        self.sequences.add(sequence)
+        self.highest_sequence = max(self.highest_sequence, sequence)
+
+
+def receive_packets(
+    bind_address, port, stats_file, sender_summary_file, test_id, ready_file=None
+):
     global keep_running
     keep_running = True
     signal.signal(signal.SIGINT, stop_receiver)
     signal.signal(signal.SIGTERM, stop_receiver)
 
-    sequences = set()
-    duplicate_packets = 0
-    out_of_order_packets = 0
-    highest_sequence = -1
+    tracker = SequenceTracker()
     received_bytes = 0
     first_receive_ns = None
     last_receive_ns = None
@@ -60,6 +78,7 @@ def receive_packets(bind_address, port, stats_file, sender_summary_file, test_id
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.settimeout(0.2)
         udp_socket.bind((bind_address, port))
+        save_json(ready_file, {"ready": True, "test_id": test_id})
         print(f"Receiver listening on {bind_address}:{port}", flush=True)
 
         while keep_running:
@@ -79,13 +98,7 @@ def receive_packets(bind_address, port, stats_file, sender_summary_file, test_id
                 if first_receive_ns is None:
                     first_receive_ns = arrival_ns
 
-                if sequence in sequences:
-                    duplicate_packets += 1
-                else:
-                    if sequence < highest_sequence:
-                        out_of_order_packets += 1
-                    sequences.add(sequence)
-                    highest_sequence = max(highest_sequence, sequence)
+                tracker.add(sequence)
 
                 if previous_arrival_ns is not None:
                     gap = arrival_ns - previous_arrival_ns
@@ -101,10 +114,7 @@ def receive_packets(bind_address, port, stats_file, sender_summary_file, test_id
                     stats_file,
                     make_summary(
                         test_id,
-                        sequences,
-                        duplicate_packets,
-                        out_of_order_packets,
-                        highest_sequence,
+                        tracker,
                         received_bytes,
                         start_ns,
                         first_receive_ns,
@@ -120,10 +130,7 @@ def receive_packets(bind_address, port, stats_file, sender_summary_file, test_id
     sender_summary = read_sender_summary(sender_summary_file)
     summary = make_summary(
         test_id,
-        sequences,
-        duplicate_packets,
-        out_of_order_packets,
-        highest_sequence,
+        tracker,
         received_bytes,
         start_ns,
         first_receive_ns,
@@ -140,10 +147,7 @@ def receive_packets(bind_address, port, stats_file, sender_summary_file, test_id
 
 def make_summary(
     test_id,
-    sequences,
-    duplicates,
-    out_of_order,
-    highest_sequence,
+    tracker,
     received_bytes,
     start_ns,
     first_receive_ns,
@@ -158,10 +162,12 @@ def make_summary(
     summary = {
         "test_id": test_id,
         "final": final,
-        "unique_packets_received": len(sequences),
-        "duplicate_packets": duplicates,
-        "out_of_order_packets": out_of_order,
-        "highest_sequence_received": highest_sequence if highest_sequence >= 0 else None,
+        "unique_packets_received": len(tracker.sequences),
+        "duplicate_packets": tracker.duplicate_packets,
+        "out_of_order_packets": tracker.out_of_order_packets,
+        "highest_sequence_received": (
+            tracker.highest_sequence if tracker.highest_sequence >= 0 else None
+        ),
         "received_bytes": received_bytes,
         "receiver_throughput_mbps": received_bytes * 8 / elapsed / 1_000_000,
         "elapsed_seconds": elapsed,
@@ -181,7 +187,7 @@ def make_summary(
         last_sequence = sender_summary.get("last_sequence")
         if sent_packets and first_sequence is not None and last_sequence is not None:
             expected = set(range(int(first_sequence), int(last_sequence) + 1))
-            received_expected = len(sequences.intersection(expected))
+            received_expected = len(tracker.sequences.intersection(expected))
             lost = max(sent_packets - received_expected, 0)
             summary.update(
                 {
@@ -222,6 +228,7 @@ def main():
     parser.add_argument("--stats-file", default="run/receiver_stats.json")
     parser.add_argument("--sender-summary", default="run/sender_summary.json")
     parser.add_argument("--test-id", default="manual")
+    parser.add_argument("--ready-file")
     args = parser.parse_args()
 
     receive_packets(
@@ -230,6 +237,7 @@ def main():
         args.stats_file,
         args.sender_summary,
         args.test_id,
+        args.ready_file,
     )
 
 

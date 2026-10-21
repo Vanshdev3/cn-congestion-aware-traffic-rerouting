@@ -18,6 +18,7 @@ from metrics import rate_from_counter, utilisation_percent
 
 
 LOG = logging.getLogger("congestion_controller")
+ROOT = Path(__file__).resolve().parent
 COOKIE_PREFIX = 0xC0DE000000000000
 COOKIE_MASK = 0xFFFFFFFF00000000
 SOURCE_IP = "10.0.0.1"
@@ -68,6 +69,7 @@ class CongestionController(app_manager.OSKenApp):
         self.transition_number = 0
         self.flow_entries_verified = False
         self.last_route_timing = None
+        self.last_congestion_route_timing = None
         self.path_b_verified_at = None
         self.recovery_time_ms = None
         self.last_rule_installation_time_ms = None
@@ -91,9 +93,9 @@ class CongestionController(app_manager.OSKenApp):
         self.sample_started_ns = None
         self.last_port_request_ns = 0
 
-        self.port_map_file = "run/port_map.json"
-        self.command_file = "run/controller_command.json"
-        self.state_file = "run/controller_state.json"
+        self.port_map_file = ROOT / "run/port_map.json"
+        self.command_file = ROOT / "run/controller_command.json"
+        self.state_file = ROOT / "run/controller_state.json"
         self.monitor_thread = hub.spawn(self.monitor_loop)
 
     def add_event(self, message, kind="info"):
@@ -124,6 +126,10 @@ class CongestionController(app_manager.OSKenApp):
                 f"OpenFlow switch disconnected: {self.switch_name(datapath.id)}",
                 "error",
             )
+            self.active_path = None
+            self.flow_entries_verified = False
+            self.transition = None
+            self.candidate_path = None
             self.route_status = "switch_disconnected"
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -250,8 +256,8 @@ class CongestionController(app_manager.OSKenApp):
         return (
             match.get("eth_type") == 0x0800
             and match.get("ip_proto") == 17
-            and match.get("ipv4_src") == SOURCE_IP
-            and match.get("ipv4_dst") == DESTINATION_IP
+            and str(match.get("ipv4_src")) == SOURCE_IP
+            and str(match.get("ipv4_dst")) == DESTINATION_IP
             and match.get("udp_dst") == UDP_PORT
         )
 
@@ -279,16 +285,43 @@ class CongestionController(app_manager.OSKenApp):
             hub.sleep(0.2)
 
     def load_port_map(self):
-        if self.port_map:
-            return
         saved_map = read_json(self.port_map_file)
         if not saved_map:
             return
         required = {"switch_ids", "links", "paths", "forward_counters"}
         if not required.issubset(saved_map):
-            self.last_error = "The discovered port map is missing required fields"
+            self.port_map = None
+            self.active_path = None
+            self.flow_entries_verified = False
+            self.transition = None
+            self.candidate_path = None
+            self.route_status = "waiting_for_port_map"
+            return
+        if saved_map == self.port_map:
             return
         self.port_map = saved_map
+        self.active_path = None
+        self.flow_entries_verified = False
+        self.transition = None
+        self.candidate_path = None
+        self.barrier_xids.clear()
+        self.flow_xids.clear()
+        self.pending_port_replies.clear()
+        self.port_reply_xids.clear()
+        self.previous_link_counters.clear()
+        self.link_measurements.clear()
+        self.latest_path_utilisation = {"A": None, "B": None}
+        self.high_samples = 0
+        self.low_samples = 0
+        self.congestion_active = False
+        self.congestion_confirmed_at = None
+        self.congestion_confirmed_ns = None
+        self.path_b_verified_at = None
+        self.recovery_time_ms = None
+        self.last_route_timing = None
+        self.last_congestion_route_timing = None
+        self.last_rule_installation_time_ms = None
+        self.route_status = "waiting_for_switches"
         self.add_event("Loaded the discovered Mininet port map")
 
     def read_command(self):
@@ -325,6 +358,7 @@ class CongestionController(app_manager.OSKenApp):
         self.path_b_verified_at = None
         self.recovery_time_ms = None
         self.last_route_timing = None
+        self.last_congestion_route_timing = None
         self.last_rule_installation_time_ms = None
         self.flow_entries_verified = False
         self.previous_link_counters.clear()
@@ -350,7 +384,12 @@ class CongestionController(app_manager.OSKenApp):
             self.start_route_change("A", reason="initial")
 
     def start_initial_route_if_needed(self):
-        if self.port_map and not self.active_path and not self.transition:
+        if (
+            self.port_map
+            and not self.active_path
+            and not self.transition
+            and self.route_status != "verification_failed"
+        ):
             self.start_route_change("A", reason="initial")
 
     def request_port_stats_if_ready(self):
@@ -637,6 +676,8 @@ class CongestionController(app_manager.OSKenApp):
         verified_at = now_iso()
         self.save_route_timing(transition, verified_at)
         self.add_event(f"Traffic-counter changes verified on Path {self.active_path}")
+        if transition["reason"] == "congestion":
+            self.last_congestion_route_timing = self.last_route_timing
 
         if transition["reason"] == "congestion" and transition["confirmed_ns"]:
             verified_ns = time.monotonic_ns()
@@ -699,6 +740,7 @@ class CongestionController(app_manager.OSKenApp):
             "expected_switches": sorted(self.switch_name(dpid) for dpid in self.expected_dpids()),
             "connected_switches": sorted(self.switch_name(dpid) for dpid in self.datapaths),
             "port_map_loaded": self.port_map is not None,
+            "mapping_generation": self.port_map.get("generation") if self.port_map else None,
             "active_path": self.active_path,
             "candidate_path": self.candidate_path,
             "route_status": self.route_status,
@@ -709,6 +751,7 @@ class CongestionController(app_manager.OSKenApp):
             "recovery_time_ms": self.recovery_time_ms,
             "rule_installation_time_ms": self.rule_installation_time_ms(),
             "last_route_timing": self.last_route_timing,
+            "last_congestion_route_timing": self.last_congestion_route_timing,
             "path_utilisation_percent": self.latest_path_utilisation,
             "links": path_measurements,
             "last_error": self.last_error,
@@ -719,7 +762,11 @@ class CongestionController(app_manager.OSKenApp):
 
     def rule_installation_time_ms(self):
         if not self.transition:
-            return self.last_rule_installation_time_ms
+            if self.last_congestion_route_timing:
+                return self.last_congestion_route_timing["rule_installation_time_ms"]
+            return None
+        if self.transition.get("reason") != "congestion":
+            return None
         installed_ns = self.transition.get("rules_installed_ns")
         if not installed_ns:
             return None

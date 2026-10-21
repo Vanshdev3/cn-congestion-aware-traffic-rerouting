@@ -4,9 +4,12 @@ The OS-Ken app is in `controller.py`. Start it from the project directory in
 the Linux environment:
 
 ```bash
-source .venv/bin/activate
-osken-manager controller.py
+sudo .venv/bin/osken-manager --ofp-tcp-listen-port 6653 controller.py
 ```
+
+The explicit port is important: OS-Ken listens on port 6633 by default, while
+this project's Mininet switches connect on port 6653. The OS-Ken listener
+option is documented in its [configuration parameters](https://github.com/openstack/os-ken/blob/master/doc/source/parameters.rst).
 
 The topology writes the discovered port map to `run/port_map.json`. The
 controller reads that file and uses the same mapping when it requests port
@@ -16,6 +19,9 @@ counters and installs rules. Its current state is written to
 The experiment manager and dashboard use `run/controller_command.json` to
 request a reset or change the mode and threshold. These files are runtime
 state; `.gitignore` keeps the `run/` directory out of commits.
+Run the controller and experiment manager with `sudo` so both processes can
+read and update this shared runtime directory. The Tkinter dashboard does not
+need root privileges.
 
 ## What the controller measures
 

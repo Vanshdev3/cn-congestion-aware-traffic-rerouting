@@ -50,6 +50,14 @@ The OS-Ken behavior and its verification steps are described in
 [docs/CONTROLLER.md](docs/CONTROLLER.md). The controller and experiment manager
 share small JSON files under `run/`, which are local runtime state and are not
 committed to Git.
+The dashboard API paths are listed in [docs/HTTP_API.md](docs/HTTP_API.md).
+
+## Run the full application
+
+In Linux, start OS-Ken and the experiment manager in separate terminals, then
+open the dashboard in a third. The exact commands and privilege notes are in
+[docs/SETUP.md](docs/SETUP.md). The controller uses port 6653 explicitly so
+its listener matches the Mininet switches.
 
 ## Getting started
 
@@ -57,14 +65,17 @@ Read [docs/SETUP.md](docs/SETUP.md) before installing anything. The network
 requires Linux, root privileges for Mininet, Open vSwitch, and Python. Windows
 is the host; the networking tools run in a Linux VM or another Linux system.
 
-The implementation will be added milestone by milestone. Until the Linux
-environment is ready, the Mininet-dependent parts cannot be run on Windows.
+The Mininet-dependent parts have not yet been run because this computer does
+not have WSL or another Linux VM installed. See the setup guide for the first
+smoke test and the controller/network startup sequence.
 
 ## Team workflow
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions and
 [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md) for suggested roles. The final demo
 sequence is in [docs/DEMO_CHECKLIST.md](docs/DEMO_CHECKLIST.md).
+Use [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) to connect this local history
+to the suggested private GitHub repository after creating it.
 
 ## References
 
