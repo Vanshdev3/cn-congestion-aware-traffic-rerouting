@@ -34,3 +34,9 @@ their port mapping and flow rules must agree.
 - **Recovery time:** congestion-confirmed timestamp to verified traffic on Path
   B. Rule-installation time is reported separately.
 
+The UDP programs count application datagram bytes. Those throughput numbers do
+not include Ethernet, IP, or UDP headers. The sender increments its sequence
+only after `sendto` succeeds. The receiver separates duplicates from
+out-of-order packets and finalizes loss using the sender's first/last sequence
+and successful packet count.
+

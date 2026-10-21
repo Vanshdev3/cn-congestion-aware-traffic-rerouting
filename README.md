@@ -40,6 +40,12 @@ verification. `topology.py` defines the link/port layout, and
 `start_network.py` prints the interfaces Mininet actually created before
 opening its command prompt.
 
+`udp_sender.py` sends fixed-size packets with a sequence number and monotonic
+send timestamp. `udp_receiver.py` keeps unique sequence numbers, counts
+duplicates and out-of-order arrivals, and writes a live JSON snapshot. Final
+loss is calculated only after the sender summary is available, so a temporary
+gap does not count as a lost packet.
+
 ## Getting started
 
 Read [docs/SETUP.md](docs/SETUP.md) before installing anything. The network
