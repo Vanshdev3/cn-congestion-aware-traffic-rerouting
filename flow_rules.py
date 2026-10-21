@@ -21,8 +21,8 @@ def rules_for_path(port_map, path_name):
 
         previous_node = nodes[index - 1]
         next_node = nodes[index + 1]
-        incoming_link = links[link_name(previous_node, node)]
-        outgoing_link = links[link_name(node, next_node)]
+        incoming_link = links[link_name(links, previous_node, node)]
+        outgoing_link = links[link_name(links, node, next_node)]
         rules.append(
             {
                 "switch": node,
@@ -34,6 +34,9 @@ def rules_for_path(port_map, path_name):
     return rules
 
 
-def link_name(left, right):
-    return "-".join(sorted((left, right)))
+def link_name(links, left, right):
+    for name, link in links.items():
+        if {link["left"], link["right"]} == {left, right}:
+            return name
+    raise ValueError(f"No topology link connects {left} and {right}")
 

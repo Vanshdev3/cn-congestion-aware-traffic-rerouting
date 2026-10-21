@@ -12,12 +12,12 @@ def example_port_map():
         return {"switch": name, "port": port}
 
     links = {
-        "h1-s1": {"switch_ends": [switch_end("s1", 1)]},
-        "s1-s2": {"switch_ends": [switch_end("s1", 2), switch_end("s2", 1)]},
-        "s2-s4": {"switch_ends": [switch_end("s2", 2), switch_end("s4", 1)]},
-        "s1-s3": {"switch_ends": [switch_end("s1", 3), switch_end("s3", 1)]},
-        "s3-s4": {"switch_ends": [switch_end("s3", 2), switch_end("s4", 2)]},
-        "s4-h2": {"switch_ends": [switch_end("s4", 3)]},
+        "h1-s1": {"left": "h1", "right": "s1", "switch_ends": [switch_end("s1", 1)]},
+        "s1-s2": {"left": "s1", "right": "s2", "switch_ends": [switch_end("s1", 2), switch_end("s2", 1)]},
+        "s2-s4": {"left": "s2", "right": "s4", "switch_ends": [switch_end("s2", 2), switch_end("s4", 1)]},
+        "s1-s3": {"left": "s1", "right": "s3", "switch_ends": [switch_end("s1", 3), switch_end("s3", 1)]},
+        "s3-s4": {"left": "s3", "right": "s4", "switch_ends": [switch_end("s3", 2), switch_end("s4", 2)]},
+        "s4-h2": {"left": "s4", "right": "h2", "switch_ends": [switch_end("s4", 3)]},
     }
     return {
         "switch_ids": {"s1": 1, "s2": 2, "s3": 3, "s4": 4},
