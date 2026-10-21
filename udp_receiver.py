@@ -57,7 +57,13 @@ class SequenceTracker:
 
 
 def receive_packets(
-    bind_address, port, stats_file, sender_summary_file, test_id, ready_file=None
+    bind_address,
+    port,
+    stats_file,
+    sender_summary_file,
+    test_id,
+    ready_file=None,
+    duration_seconds=None,
 ):
     global keep_running
     keep_running = True
@@ -73,6 +79,11 @@ def receive_packets(
     gap_variation_total_ns = 0
     gap_variation_samples = 0
     start_ns = time.monotonic_ns()
+    stop_ns = (
+        start_ns + int(duration_seconds * 1_000_000_000)
+        if duration_seconds is not None
+        else None
+    )
     last_report_ns = start_ns
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
@@ -81,7 +92,7 @@ def receive_packets(
         save_json(ready_file, {"ready": True, "test_id": test_id})
         print(f"Receiver listening on {bind_address}:{port}", flush=True)
 
-        while keep_running:
+        while keep_running and (stop_ns is None or time.monotonic_ns() < stop_ns):
             try:
                 packet, _sender = udp_socket.recvfrom(65535)
             except socket.timeout:
@@ -229,6 +240,7 @@ def main():
     parser.add_argument("--sender-summary", default="run/sender_summary.json")
     parser.add_argument("--test-id", default="manual")
     parser.add_argument("--ready-file")
+    parser.add_argument("--duration", type=float)
     args = parser.parse_args()
 
     receive_packets(
@@ -238,6 +250,7 @@ def main():
         args.sender_summary,
         args.test_id,
         args.ready_file,
+        args.duration,
     )
 
 

@@ -465,6 +465,7 @@ class ExperimentManager:
             switches_ready = bool(
                 controller_heartbeat
                 and controller_heartbeat.get("port_map_loaded")
+                and controller_heartbeat.get("mapping_generation") == self.map_generation
                 and set(controller_heartbeat.get("expected_switches", []))
                 <= set(controller_heartbeat.get("connected_switches", []))
                 and controller_heartbeat.get("expected_switches")

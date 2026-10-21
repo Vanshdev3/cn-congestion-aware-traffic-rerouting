@@ -78,6 +78,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions and
 sequence is in [docs/DEMO_CHECKLIST.md](docs/DEMO_CHECKLIST.md).
 Use [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) to connect this local history
 to the suggested private GitHub repository after creating it.
+See [docs/TESTING.md](docs/TESTING.md) for local unit/UDP checks and the Linux
+network acceptance checks.
 
 ## References
 

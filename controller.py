@@ -295,6 +295,10 @@ class CongestionController(app_manager.OSKenApp):
             self.flow_entries_verified = False
             self.transition = None
             self.candidate_path = None
+            self.pending_port_replies.clear()
+            self.port_reply_xids.clear()
+            self.sample_ports.clear()
+            self.sample_started_ns = None
             self.route_status = "waiting_for_port_map"
             return
         if saved_map == self.port_map:
@@ -308,6 +312,9 @@ class CongestionController(app_manager.OSKenApp):
         self.flow_xids.clear()
         self.pending_port_replies.clear()
         self.port_reply_xids.clear()
+        self.sample_ports.clear()
+        self.sample_started_ns = None
+        self.last_port_request_ns = 0
         self.previous_link_counters.clear()
         self.link_measurements.clear()
         self.latest_path_utilisation = {"A": None, "B": None}
@@ -425,6 +432,10 @@ class CongestionController(app_manager.OSKenApp):
             self.finish_port_sample()
 
     def finish_port_sample(self):
+        if not self.port_map:
+            self.pending_port_replies.clear()
+            self.sample_started_ns = None
+            return
         now_ns = time.monotonic_ns()
         by_link = {}
         for path_entries in self.port_map["forward_counters"].values():
