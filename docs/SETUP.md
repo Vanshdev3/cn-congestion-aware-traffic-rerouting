@@ -63,7 +63,7 @@ osken-manager --version
 If `mn --version` or `osken-manager --version` is not accepted by the installed
 version, record the package version shown by `apt` or `pip` instead.
 
-## Start the project later
+## Run the project
 
 Start the controller and experiment manager in separate Linux terminals:
 

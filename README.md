@@ -58,6 +58,8 @@ In Linux, start OS-Ken and the experiment manager in separate terminals, then
 open the dashboard in a third. The exact commands and privilege notes are in
 [docs/SETUP.md](docs/SETUP.md). The controller uses port 6653 explicitly so
 its listener matches the Mininet switches.
+The dashboard can change the sender's rate while a test is running; the sender
+reads that setting and changes its real UDP pacing.
 
 ## Getting started
 
