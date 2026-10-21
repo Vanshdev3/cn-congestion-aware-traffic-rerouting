@@ -36,7 +36,9 @@ mode reports congestion but keeps the flow on Path A.
 
 Each milestone is recorded in its own Git commit. The first `pingall` check is
 only a Mininet smoke test; controller connection and rerouting need separate
-verification.
+verification. `topology.py` defines the link/port layout, and
+`start_network.py` prints the interfaces Mininet actually created before
+opening its command prompt.
 
 ## Getting started
 
