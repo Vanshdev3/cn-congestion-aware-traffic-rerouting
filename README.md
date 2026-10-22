@@ -5,8 +5,9 @@ packets over two routes. An OS-Ken controller measures switch counters and
 moves the selected flow to the second route when the first route stays busy.
 
 The project is an emulation on one Linux machine. It does not control physical
-routers. We will use measured switch and receiver counters in the results; the
-dashboard is only a way to control and observe the experiment.
+routers. We use measured switch and receiver counters in the results. The
+normal demo is terminal-based, so the network and controller can be inspected
+directly instead of relying on a graphical view.
 
 ## Network idea
 
@@ -32,7 +33,7 @@ mode reports congestion but keeps the flow on Path A.
 4. Connect OS-Ken to Open vSwitch and collect directional port counters.
 5. Add congestion detection, rule changes, and strict path verification.
 6. Repeat baseline, static, and adaptive experiments; export measured CSV.
-7. Add the Tkinter dashboard and connect it to the running experiment.
+7. Keep the optional Tkinter dashboard as a later convenience layer.
 
 Each milestone is recorded in its own Git commit. The first `pingall` check is
 only a Mininet smoke test; controller connection and rerouting need separate
@@ -50,26 +51,23 @@ The OS-Ken behavior and its verification steps are described in
 [docs/CONTROLLER.md](docs/CONTROLLER.md). The controller and experiment manager
 share small JSON files under `run/`, which are local runtime state and are not
 committed to Git.
-The dashboard API paths are listed in [docs/HTTP_API.md](docs/HTTP_API.md).
+The local control API and the simple terminal client are described in
+[docs/HTTP_API.md](docs/HTTP_API.md).
 
-## Run the full application
+## Run the raw Linux demo
 
-In Linux, start OS-Ken and the experiment manager in separate terminals, then
-open the dashboard in a third. The exact commands and privilege notes are in
-[docs/SETUP.md](docs/SETUP.md). The controller uses port 6653 explicitly so
-its listener matches the Mininet switches.
-The dashboard can change the sender's rate while a test is running; the sender
-reads that setting and changes its real UDP pacing.
+In Linux, start OS-Ken and the experiment manager in separate terminals. Use
+`raw_demo.py` from another terminal to start the network, run tests, inspect
+state, and stop the network. The exact commands are in [docs/SETUP.md](docs/SETUP.md).
+The controller uses port 6653 explicitly so its listener matches the Mininet
+switches.
 
 ## Getting started
 
-Read [docs/SETUP.md](docs/SETUP.md) before installing anything. The network
-requires Linux, root privileges for Mininet, Open vSwitch, and Python. Windows
-is the host; the networking tools run in a Linux VM or another Linux system.
-
-The Mininet-dependent parts have not yet been run because this computer does
-not have WSL or another Linux VM installed. See the setup guide for the first
-smoke test and the controller/network startup sequence.
+Read [docs/SETUP.md](docs/SETUP.md) before installing anything. The complete
+demo runs on Linux and requires root privileges for Mininet and Open vSwitch.
+The project files, controller, manager, and test commands should all be run
+inside that Linux environment.
 
 ## Team workflow
 
@@ -78,7 +76,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions and
 sequence is in [docs/DEMO_CHECKLIST.md](docs/DEMO_CHECKLIST.md).
 Use [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) to connect this local history
 to the suggested private GitHub repository after creating it.
-See [docs/TESTING.md](docs/TESTING.md) for local unit/UDP checks and the Linux
+See [docs/TESTING.md](docs/TESTING.md) for unit/UDP checks and the Linux
 network acceptance checks.
 
 ## References

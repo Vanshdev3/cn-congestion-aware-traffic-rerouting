@@ -8,7 +8,7 @@ UDP sender on h1 -> Open vSwitch path -> UDP receiver on h2
                      OS-Ken reads counters
                      and changes flow rules
                              ^
-               Tkinter controls the experiment
+                     raw_demo.py controls the experiment
 ```
 
 Suggested responsibilities for four people:
@@ -18,10 +18,14 @@ Suggested responsibilities for four people:
 | Linux environment | VM, Mininet, OVS, package/version notes | Successful smoke-test output |
 | Topology | Two paths, link rates, automatic port map | Topology printout and connectivity result |
 | Traffic and measurements | UDP sender/receiver, sequence accounting, capture | Receiver summary and packet capture |
-| Controller and demo | OS-Ken, congestion response, dashboard, run sheet | Flow tables, logs, CSV, demo screenshots |
+| Controller and demo | OS-Ken, congestion response, terminal run sheet | Flow tables, logs, CSV, demo screenshots |
 
 For a smaller team, combine areas. Pair on the controller and topology because
 their port mapping and flow rules must agree.
+
+The Tkinter dashboard is optional and should only be discussed after the raw
+Linux experiment is working. The terminal commands are the source of truth for
+the presentation.
 
 ## Experiment terms
 

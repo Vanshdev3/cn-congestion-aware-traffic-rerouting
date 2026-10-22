@@ -2,15 +2,9 @@
 
 ## Where the project runs
 
-Mininet and Open vSwitch need a Linux environment with network namespaces,
-traffic control, and permission to create virtual interfaces. Use the team's
-Linux VM or a Linux computer. A Windows terminal alone is not enough. WSL may
-work depending on its kernel and Open vSwitch setup, but it must pass the same
-checks below before the team relies on it for the demo.
-
-Keep the project files in a folder visible from Linux. If using WSL, a Windows
-folder is usually reachable under `/mnt/c/Users/<name>/...`; if using a VM,
-use a shared folder or clone the GitHub repository in Linux.
+The project runs inside Linux. The demo machine may be a physical Linux
+computer or a Linux virtual machine, but Mininet, Open vSwitch, OS-Ken, the
+traffic programs, and the commands below all run inside Linux.
 
 ## Install the base packages
 
@@ -18,7 +12,7 @@ On Ubuntu, install the system packages from a terminal:
 
 ```bash
 sudo apt update
-sudo apt install -y mininet openvswitch-switch python3 python3-pip python3-venv python3-tk wireshark
+sudo apt install -y mininet openvswitch-switch python3 python3-pip python3-venv wireshark
 ```
 
 Start Open vSwitch if the service is not already running:
@@ -36,8 +30,9 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Mininet, Open vSwitch, and Tkinter come from the operating system packages.
-Only the controller framework is installed from `requirements.txt`.
+Mininet and Open vSwitch come from the operating system packages. Only the
+controller framework is installed from `requirements.txt`. If the optional GUI
+is needed later, install `python3-tk` as an extra package.
 
 ## Milestone 1 smoke test
 
@@ -72,15 +67,33 @@ sudo .venv/bin/osken-manager --ofp-tcp-listen-port 6653 controller.py
 sudo python3 experiment_manager.py
 ```
 
-Once both are running, start the dashboard in a third terminal:
+Once both are running, use a third Linux terminal for the raw demo commands:
+
+```bash
+python3 raw_demo.py start-network
+python3 raw_demo.py status
+```
+
+Run a repeatable adaptive test:
+
+```bash
+python3 raw_demo.py reset --mode adaptive --threshold 75
+python3 raw_demo.py start-test --mode adaptive --rate 4 --duration 20
+python3 raw_demo.py status
+python3 raw_demo.py stop-test
+python3 raw_demo.py export
+```
+
+For comparison, repeat the same settings with `--mode static`. The manager
+starts Mininet, so do not also run `start_network.py` at the same time. Use
+`start_network.py` separately when you want the plain Mininet CLI for topology
+inspection.
+
+The Tkinter dashboard is optional and is not needed for the demo:
 
 ```bash
 python3 dashboard.py
 ```
-
-The manager starts Mininet from the dashboard. Do not also run
-`start_network.py` at the same time; both programs would try to create the lab
-network.
 
 ## Wireshark note
 

@@ -15,13 +15,15 @@
 
 ## Five-minute walkthrough
 
-1. Identify Path A and Path B and show their configured capacities.
-2. Start a low-rate UDP test and show receiver counts and Wireshark packets.
-3. Run the congested static test and show the measured Path A load.
-4. Reset, repeat the same settings in adaptive mode, and show congestion
+1. Start the controller and manager in two Linux terminals.
+2. Run `python3 raw_demo.py start-network` and show the printed topology map.
+3. Identify Path A and Path B and show their configured capacities.
+4. Start a low-rate UDP test and show receiver counts and Wireshark packets.
+5. Run the congested static test and show the measured Path A load.
+6. Reset, repeat the same settings in adaptive mode, and show congestion
    confirmation.
-5. Show the installed flow rules and increasing Path B counters.
-6. Compare receiver throughput, estimated loss, utilisation, and recovery time.
-7. Explain that this is a Mininet emulation and point out any limitations seen
+7. Show the installed flow rules and increasing Path B counters.
+8. Compare receiver throughput, estimated loss, utilisation, and recovery time.
+9. Explain that this is a Mininet emulation and point out any limitations seen
    in the measured results.
 

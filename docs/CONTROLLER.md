@@ -16,12 +16,12 @@ controller reads that file and uses the same mapping when it requests port
 counters and installs rules. Its current state is written to
 `run/controller_state.json`.
 
-The experiment manager and dashboard use `run/controller_command.json` to
+The experiment manager and `raw_demo.py` use `run/controller_command.json` to
 request a reset or change the mode and threshold. These files are runtime
-state; `.gitignore` keeps the `run/` directory out of commits.
-Run the controller and experiment manager with `sudo` so both processes can
-read and update this shared runtime directory. The Tkinter dashboard does not
-need root privileges.
+state; `.gitignore` keeps the `run/` directory out of commits. Run the
+controller and experiment manager with `sudo` so both processes can read and
+update this shared runtime directory. The raw terminal client does not need
+root privileges.
 
 ## What the controller measures
 

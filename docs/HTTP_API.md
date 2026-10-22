@@ -1,8 +1,9 @@
-# Local dashboard API
+# Local experiment control API
 
-The Tkinter window talks to `experiment_manager.py` over HTTP on
-`127.0.0.1:8765`. The server uses Python's standard library and listens only
-on the local machine.
+`raw_demo.py` talks to `experiment_manager.py` over HTTP on `127.0.0.1:8765`.
+The server uses Python's standard library and listens only on the local
+machine. The optional Tkinter window uses these same endpoints; it is not part
+of the core experiment.
 
 | Request | Purpose |
 |---|---|
@@ -18,8 +19,8 @@ on the local machine.
 | `POST /command/reset` | Reset counters/baselines and restore Path A |
 | `POST /export` | Return the path to the accumulated experiment CSV |
 
-Command requests and results use JSON. The dashboard shows a connection error
-when the manager is unreachable. The manager hides controller measurements
+Command requests and results use JSON. `raw_demo.py` prints a clear connection
+error when the manager is unreachable. The manager hides controller measurements
 when the controller heartbeat is old or the switches are not connected. It
 also marks individual link measurements unavailable when their sample is old.
 Completed test results remain labeled as a past run, separate from live values.
