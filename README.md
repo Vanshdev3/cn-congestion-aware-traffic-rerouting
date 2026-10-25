@@ -53,6 +53,8 @@ share small JSON files under `run/`, which are local runtime state and are not
 committed to Git.
 The local control API and the simple terminal client are described in
 [docs/HTTP_API.md](docs/HTTP_API.md).
+The complete VM setup and presentation sequence are in
+[docs/TEAM_RUNBOOK.md](docs/TEAM_RUNBOOK.md).
 
 ## Run the raw Linux demo
 

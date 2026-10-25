@@ -253,11 +253,13 @@ class CongestionController(app_manager.OSKenApp):
 
     @staticmethod
     def is_project_flow(match):
+        source = str(match.get("ipv4_src", "")).split("/", 1)[0]
+        destination = str(match.get("ipv4_dst", "")).split("/", 1)[0]
         return (
             match.get("eth_type") == 0x0800
             and match.get("ip_proto") == 17
-            and str(match.get("ipv4_src")) == SOURCE_IP
-            and str(match.get("ipv4_dst")) == DESTINATION_IP
+            and source == SOURCE_IP
+            and destination == DESTINATION_IP
             and match.get("udp_dst") == UDP_PORT
         )
 
@@ -598,6 +600,39 @@ class CongestionController(app_manager.OSKenApp):
     def add_udp_flow(self, datapath, rule):
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
+        actions = [parser.OFPActionOutput(rule["out_port"])]
+        instructions = [
+            parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)
+        ]
+
+        # Keep basic IPv4 connectivity working for the Mininet smoke test.
+        # The UDP rule below has a higher priority and still selects the
+        # measured project flow precisely.
+        for input_port, output_port in (
+            (rule["in_port"], rule["out_port"]),
+            (rule["out_port"], rule["in_port"]),
+        ):
+            ip_match = parser.OFPMatch(in_port=input_port, eth_type=0x0800)
+            reverse_actions = [parser.OFPActionOutput(output_port)]
+            reverse_instructions = [
+                parser.OFPInstructionActions(
+                    ofproto.OFPIT_APPLY_ACTIONS, reverse_actions
+                )
+            ]
+            datapath.send_msg(
+                parser.OFPFlowMod(
+                    datapath=datapath,
+                    cookie=COOKIE_PREFIX | self.transition_number,
+                    table_id=0,
+                    command=ofproto.OFPFC_ADD,
+                    priority=10,
+                    idle_timeout=0,
+                    hard_timeout=0,
+                    match=ip_match,
+                    instructions=reverse_instructions,
+                )
+            )
+
         match = parser.OFPMatch(
             in_port=rule["in_port"],
             eth_type=0x0800,
@@ -606,10 +641,6 @@ class CongestionController(app_manager.OSKenApp):
             ipv4_dst=DESTINATION_IP,
             udp_dst=UDP_PORT,
         )
-        actions = [parser.OFPActionOutput(rule["out_port"])]
-        instructions = [
-            parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)
-        ]
         datapath.send_msg(
             parser.OFPFlowMod(
                 datapath=datapath,
