@@ -13,7 +13,9 @@ directly instead of relying on a graphical view.
 
 This repository implements Project 27, **Congestion Detection and Traffic
 Rerouting**, from the team's SDN/socket-project allocation workbook. The
-original project plan is also kept as the source of the detailed expectations.
+detailed expectation-by-expectation review is in
+[`docs/REQUIREMENTS_CHECKLIST.md`](docs/REQUIREMENTS_CHECKLIST.md). The source
+plan and workbook are not bundled in this repository.
 
 | Project expectation | Current implementation | Evidence still needed |
 |---|---|---|
@@ -28,10 +30,10 @@ original project plan is also kept as the source of the detailed expectations.
 | Repeat experiments cleanly | Reset restores Path A and clears measurement baselines | Repeat twice in the VM |
 | Provide packet-level evidence | Wireshark instructions and UDP filter are documented | Optional capture or screenshots |
 
-The code and local unit/loopback tests are complete. The rows that require a
-Linux kernel, Mininet, Open vSwitch, and OS-Ken cannot be honestly marked
-experimentally verified from this Windows development environment. Follow
-[`docs/TEAM_RUNBOOK.md`](docs/TEAM_RUNBOOK.md) to collect that evidence.
+The Python code and local unit/loopback tests are implemented. End-to-end
+behavior still needs to be checked in the Linux VM with Mininet, Open vSwitch,
+and OS-Ken. Follow [`docs/TEAM_RUNBOOK.md`](docs/TEAM_RUNBOOK.md) and record
+the output from those runs before describing the project as fully tested.
 
 The optional Tkinter dashboard is not the networking implementation. The raw
 terminal workflow is the primary demo and source of truth.
@@ -48,9 +50,9 @@ terminal workflow is the primary demo and source of truth.
                      Path B (5 Mbps)
 ```
 
-The controller starts the UDP flow on Path A. In adaptive mode, it can change
-OpenFlow rules to use Path B after measured congestion is confirmed. Static
-mode reports congestion but keeps the flow on Path A.
+The controller installs the UDP flow on Path A first. In adaptive mode, it
+can update OpenFlow rules to use Path B after measured congestion is confirmed.
+Static mode reports congestion but keeps the flow on Path A.
 
 ## Project milestones
 
