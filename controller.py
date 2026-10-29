@@ -75,6 +75,7 @@ class CongestionController(app_manager.OSKenApp):
         self.last_rule_installation_time_ms = None
         self.barrier_xids = {}
         self.flow_xids = {}
+        self.flow_measurements = {}
         self.flow_check = None
 
         self.previous_link_counters = {}
@@ -228,6 +229,13 @@ class CongestionController(app_manager.OSKenApp):
         for stat in message.body:
             if not self.is_project_flow(stat.match):
                 continue
+            self.flow_measurements[f"{datapath_id}:{stat.match.get('in_port')}"] = {
+                "dpid": datapath_id,
+                "in_port": stat.match.get("in_port"),
+                "packets": getattr(stat, "packet_count", None),
+                "bytes": getattr(stat, "byte_count", None),
+                "sampled_at": now_iso(),
+            }
             for instruction in stat.instructions:
                 for action in getattr(instruction, "actions", []):
                     if hasattr(action, "port"):
@@ -312,6 +320,7 @@ class CongestionController(app_manager.OSKenApp):
         self.candidate_path = None
         self.barrier_xids.clear()
         self.flow_xids.clear()
+        self.flow_measurements.clear()
         self.pending_port_replies.clear()
         self.port_reply_xids.clear()
         self.sample_ports.clear()
@@ -381,6 +390,7 @@ class CongestionController(app_manager.OSKenApp):
         self.flow_entries_verified = False
         self.barrier_xids.clear()
         self.flow_xids.clear()
+        self.flow_measurements.clear()
         self.pending_port_replies.clear()
         self.port_reply_xids.clear()
         self.sample_ports.clear()
@@ -787,6 +797,7 @@ class CongestionController(app_manager.OSKenApp):
             "candidate_path": self.candidate_path,
             "route_status": self.route_status,
             "flow_entries_verified": self.flow_entries_verified,
+            "flow_statistics": self.flow_measurements,
             "congestion_active": self.congestion_active,
             "congestion_confirmed_at": self.congestion_confirmed_at,
             "path_b_verified_at": self.path_b_verified_at,

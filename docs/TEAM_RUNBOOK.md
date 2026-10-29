@@ -168,6 +168,11 @@ The selected path has IPv4 forwarding rules and a more specific UDP rule. The
 UDP rule should contain source `10.0.0.1`, destination `10.0.0.2`, and UDP
 destination port `5001`.
 
+The controller state also exposes `flow_statistics`. These are the packet and
+byte counters returned by OpenFlow for the selected UDP rules. They are
+separate from the port counters used for link utilisation, so the demo can
+show both network-level load and application-flow evidence.
+
 ## 7. Run a normal UDP test
 
 Start with a low rate to prove delivery without intentional congestion:

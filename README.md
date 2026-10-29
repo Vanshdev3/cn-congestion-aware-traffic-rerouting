@@ -9,6 +9,33 @@ routers. We use measured switch and receiver counters in the results. The
 normal demo is terminal-based, so the network and controller can be inspected
 directly instead of relying on a graphical view.
 
+## Requirements and completion status
+
+This repository implements Project 27, **Congestion Detection and Traffic
+Rerouting**, from the team's SDN/socket-project allocation workbook. The
+original project plan is also kept as the source of the detailed expectations.
+
+| Project expectation | Current implementation | Evidence still needed |
+|---|---|---|
+| Generate UDP traffic across multiple paths | Numbered Python UDP sender and receiver; Path A and Path B in Mininet | Linux VM run |
+| Create controlled congestion | 2 Mbps Path A, 5 Mbps Path B, configurable sender rate | Linux VM run at a rate above Path A capacity |
+| Monitor flow statistics | OS-Ken requests flow statistics, verifies rules, and records UDP packet/byte counters | Linux controller output |
+| Define and detect congestion thresholds | Configurable threshold, three consecutive high samples, cooldown | Linux controller output |
+| Dynamically reroute traffic | Controller installs rules for the alternate path in adaptive mode | Linux flow-table and counter evidence |
+| Measure recovery time and throughput | Separate timestamps, receiver throughput, packet loss, and path utilisation | Completed experiment CSV from Linux |
+| Compare static and adaptive routing | Both modes use the same resettable manager and test controls | Matching static/adaptive runs |
+| Use real measurements, not mock values | Counters and receiver summaries come from live processes; no sample results are committed | Do not present unrun values as results |
+| Repeat experiments cleanly | Reset restores Path A and clears measurement baselines | Repeat twice in the VM |
+| Provide packet-level evidence | Wireshark instructions and UDP filter are documented | Optional capture or screenshots |
+
+The code and local unit/loopback tests are complete. The rows that require a
+Linux kernel, Mininet, Open vSwitch, and OS-Ken cannot be honestly marked
+experimentally verified from this Windows development environment. Follow
+[`docs/TEAM_RUNBOOK.md`](docs/TEAM_RUNBOOK.md) to collect that evidence.
+
+The optional Tkinter dashboard is not the networking implementation. The raw
+terminal workflow is the primary demo and source of truth.
+
 ## Network idea
 
 ```text

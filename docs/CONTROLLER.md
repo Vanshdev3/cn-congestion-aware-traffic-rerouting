@@ -29,7 +29,8 @@ For every link in the H1-to-H2 path, the map identifies one switch port and one
 counter direction. The first link uses the switch port's receive-byte counter;
 the remaining links use the transmitting switch port's transmit-byte counter.
 The controller compares counter samples and divides the measured bit rate by
-the configured capacity.
+the configured capacity. It also records packet and byte counters for the
+verified UDP flow in `flow_statistics` in the controller state.
 
 Path utilisation is shown as the highest measured utilisation among that
 path's links. A path does not become congested until three consecutive samples
