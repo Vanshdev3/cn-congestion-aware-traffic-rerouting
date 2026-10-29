@@ -76,8 +76,8 @@ inside that Linux environment.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions and
 [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md) for suggested roles. The final demo
 sequence is in [docs/DEMO_CHECKLIST.md](docs/DEMO_CHECKLIST.md).
-Use [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) to connect this local history
-to the suggested private GitHub repository after creating it.
+Use [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) to publish this local history
+to the public GitHub repository and invite the team.
 See [docs/TESTING.md](docs/TESTING.md) for unit/UDP checks and the Linux
 network acceptance checks.
 
