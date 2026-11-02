@@ -155,7 +155,9 @@ class ExperimentManager:
                 self.map_generation = generation
                 self.add_event("Mininet network started and actual port map saved")
                 self.wait_for_path_a(generation=generation)
-            except Exception:
+            except Exception as error:
+                self.add_event(f"Could not start Mininet network: {error}", "error")
+                print(f"Could not start Mininet network: {error}", flush=True)
                 network.stop()
                 self.network = None
                 self.port_map = None
