@@ -526,6 +526,7 @@ class ExperimentManager:
                     age = age_seconds_from_unix_ns(current.get("measured_at_unix_ns"))
                     if age is not None and age <= LIVE_SECONDS:
                         receiver_live = current
+                        receiver_live["sent_packets"] = self.current_test.get("sent_packets")
 
             events = list(self.events)
             if controller_heartbeat:

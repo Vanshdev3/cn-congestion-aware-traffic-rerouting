@@ -2,7 +2,6 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
-  const controls = ["start-test", "start-network", "apply-rate", "apply-settings", "reset", "stop-test", "stop-network", "export"];
   let latestState = null;
   let polling = false;
   let commandBusy = false;
@@ -192,7 +191,7 @@
     const elapsed = now - animationStarted;
     [...stream.children].forEach((dot, index) => {
       const spacing = congested ? 225 : 520;
-      const fraction = ((elapsed - index * spacing) % 5200 + 5200) % 5200 / 5200;
+      const fraction = ((elapsed - index * spacing) % 3900 + 3900) % 3900 / 3900;
       const [x, y] = pointOnRoute(activeRoute === "B" ? [[130,184],[286,184],[452,273],[650,273],[790,184]] : [[130,184],[286,184],[452,95],[650,95],[790,184]], fraction);
       dot.setAttribute("cx", x); dot.setAttribute("cy", y);
     });
