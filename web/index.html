@@ -37,7 +37,7 @@
         <label class="range-control">
           <span>Traffic offered</span>
           <input id="rate" type="range" min="0.5" max="10" step="0.5" value="3">
-          <strong id="rate-value">3.0 Mbps</strong>
+          <div class="rate-readout"><input id="rate-number" type="number" min="0.5" max="10" step="0.5" value="3"><strong id="rate-value">Mbps offered</strong></div>
         </label>
         <label>
           <span>Run length</span>
@@ -76,14 +76,14 @@
           <svg class="topology" viewBox="0 0 920 360" role="img" aria-label="Two-path Mininet topology from host h1 to h2">
             <path id="path-a" class="route" d="M130 184 L286 184 L452 95 L650 95 L790 184"></path>
             <path id="path-b" class="route" d="M130 184 L286 184 L452 273 L650 273 L790 184"></path>
-            <g class="node host"><rect x="64" y="146" width="66" height="76" rx="8"></rect><text x="97" y="190">h1</text></g>
-            <g class="node"><rect x="253" y="146" width="66" height="76" rx="8"></rect><text x="286" y="190">s1</text></g>
-            <g class="node"><rect x="419" y="57" width="66" height="76" rx="8"></rect><text x="452" y="101">s2</text></g>
-            <g class="node"><rect x="419" y="235" width="66" height="76" rx="8"></rect><text x="452" y="279">s3</text></g>
-            <g class="node"><rect x="617" y="146" width="66" height="76" rx="8"></rect><text x="650" y="190">s4</text></g>
-            <g class="node host"><rect x="790" y="146" width="66" height="76" rx="8"></rect><text x="823" y="190">h2</text></g>
-            <circle id="packet" cx="130" cy="184" r="8"></circle>
-            <g class="route-label"><text x="360" y="113" id="path-a-label">Path A · —</text><text x="360" y="292" id="path-b-label">Path B · —</text></g>
+            <g class="node host"><rect x="57" y="139" width="80" height="90" rx="10"></rect><rect class="screen" x="72" y="154" width="50" height="32" rx="3"></rect><path class="stand" d="M97 186v18m-15 0h30"></path><text x="97" y="218">h1 · sender</text></g>
+            <g class="node switch"><rect x="246" y="139" width="80" height="90" rx="10"></rect><g class="ports"><circle cx="267" cy="163" r="4"></circle><circle cx="286" cy="163" r="4"></circle><circle cx="305" cy="163" r="4"></circle><circle cx="267" cy="181" r="4"></circle><circle cx="286" cy="181" r="4"></circle><circle cx="305" cy="181" r="4"></circle></g><text x="286" y="212">s1</text></g>
+            <g class="node switch"><rect x="412" y="50" width="80" height="90" rx="10"></rect><g class="ports"><circle cx="433" cy="74" r="4"></circle><circle cx="452" cy="74" r="4"></circle><circle cx="471" cy="74" r="4"></circle><circle cx="433" cy="92" r="4"></circle><circle cx="452" cy="92" r="4"></circle><circle cx="471" cy="92" r="4"></circle></g><text x="452" y="123">s2</text></g>
+            <g class="node switch"><rect x="412" y="228" width="80" height="90" rx="10"></rect><g class="ports"><circle cx="433" cy="252" r="4"></circle><circle cx="452" cy="252" r="4"></circle><circle cx="471" cy="252" r="4"></circle><circle cx="433" cy="270" r="4"></circle><circle cx="452" cy="270" r="4"></circle><circle cx="471" cy="270" r="4"></circle></g><text x="452" y="301">s3</text></g>
+            <g class="node switch"><rect x="610" y="139" width="80" height="90" rx="10"></rect><g class="ports"><circle cx="631" cy="163" r="4"></circle><circle cx="650" cy="163" r="4"></circle><circle cx="669" cy="163" r="4"></circle><circle cx="631" cy="181" r="4"></circle><circle cx="650" cy="181" r="4"></circle><circle cx="669" cy="181" r="4"></circle></g><text x="650" y="212">s4</text></g>
+            <g class="node host"><rect x="783" y="139" width="80" height="90" rx="10"></rect><rect class="screen" x="798" y="154" width="50" height="32" rx="3"></rect><path class="stand" d="M823 186v18m-15 0h30"></path><text x="823" y="218">h2 · receiver</text></g>
+            <g id="packet-stream" aria-hidden="true"></g>
+            <g class="route-label"><text x="332" y="38" id="path-a-label">Path A · —</text><text x="332" y="342" id="path-b-label">Path B · —</text></g>
           </svg>
         </div>
         <p class="route-caption" id="route-caption">Both paths are shown. The highlighted line is the path chosen by the controller.</p>
@@ -92,12 +92,12 @@
       <aside class="live-panel">
         <div class="panel-heading"><div><p class="section-kicker">LIVE MEASUREMENTS</p><h2>What the network sees</h2></div></div>
         <div class="metrics">
-          <div><span>Path A load</span><strong id="path-a-load">—</strong><div class="meter"><i id="path-a-meter"></i></div></div>
-          <div><span>Path B load</span><strong id="path-b-load">—</strong><div class="meter"><i id="path-b-meter"></i></div></div>
-          <div><span>Receiver rate</span><strong id="receiver-rate">—</strong></div>
-          <div><span>Packet loss</span><strong id="packet-loss">—</strong></div>
-          <div><span>Packets received</span><strong id="packet-count">—</strong></div>
-          <div><span>Recovery</span><strong id="recovery-time">—</strong></div>
+          <div><span>Path A load</span><strong id="path-a-load">Waiting for traffic</strong><small>Highest forward-link utilisation</small><div class="meter"><i id="path-a-meter"></i></div></div>
+          <div><span>Path B load</span><strong id="path-b-load">Waiting for traffic</strong><small>Highest forward-link utilisation</small><div class="meter"><i id="path-b-meter"></i></div></div>
+          <div><span>Receiver rate</span><strong id="receiver-rate">Waiting for packets</strong><small>Delivered UDP throughput</small></div>
+          <div><span>Packet loss</span><strong id="packet-loss">Calculated at finish</strong><small>(sent − unique received) ÷ sent</small></div>
+          <div><span>Packets received</span><strong id="packet-count">Waiting for packets</strong><small>Unique packets received ÷ sent</small></div>
+          <div><span>Recovery</span><strong id="recovery-time">Waiting for reroute</strong><small>Detection to new-path counters</small></div>
         </div>
         <p class="measurement-note" id="measurement-note">Loads are directional switch-port measurements. Both routes are monitored even when only one carries the selected UDP flow.</p>
       </aside>
