@@ -7,14 +7,14 @@
   let polling = false;
   let commandBusy = false;
   let activeRoute = "A";
-  let previousRoute = null;
   let routeChangeUntil = 0;
   let animationStarted = performance.now();
   let showCurrentRunOnly = true;
 
+  const hasNumber = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
   const format = (value, suffix = "", digits = 1) => {
     const number = Number(value);
-    return Number.isFinite(number) ? `${number.toFixed(digits)}${suffix}` : "—";
+    return hasNumber(value) ? `${number.toFixed(digits)}${suffix}` : "—";
   };
   const percent = (value) => format(value, "%", 1);
   const selectedMode = () => document.querySelector("input[name=mode]:checked").value;
@@ -82,10 +82,10 @@
 
   function updateMeter(name, load, threshold) {
     const value = Number(load);
-    setText(`path-${name}-load`, Number.isFinite(value) ? percent(value) : "Waiting for traffic");
+    setText(`path-${name}-load`, hasNumber(load) ? percent(value) : "Waiting for traffic");
     const meter = $(`path-${name}-meter`);
-    meter.style.width = Number.isFinite(value) ? `${clamp(value, 0, 100)}%` : "0%";
-    meter.classList.toggle("alert", Number.isFinite(value) && value >= threshold);
+    meter.style.width = hasNumber(load) ? `${clamp(value, 0, 100)}%` : "0%";
+    meter.classList.toggle("alert", hasNumber(load) && value >= threshold);
   }
 
   function liveReceiver(state) {
@@ -98,13 +98,13 @@
     const threshold = Number((state.test || {}).threshold_percent || (state.controller || {}).threshold_percent || $("threshold").value);
     updateMeter("a", loads.A, threshold); updateMeter("b", loads.B, threshold);
     const receiver = liveReceiver(state) || {};
-    setText("receiver-rate", Number.isFinite(Number(receiver.receiver_throughput_mbps)) ? format(receiver.receiver_throughput_mbps, " Mbps", 2) : "Waiting for packets");
-    setText("packet-loss", Number.isFinite(Number(receiver.packet_loss_percent)) ? percent(receiver.packet_loss_percent) : "Calculated at finish");
+    setText("receiver-rate", hasNumber(receiver.receiver_throughput_mbps) ? format(receiver.receiver_throughput_mbps, " Mbps", 2) : "Waiting for packets");
+    setText("packet-loss", hasNumber(receiver.packet_loss_percent) ? percent(receiver.packet_loss_percent) : "Calculated at finish");
     const received = receiver.received_expected_packets;
     const sent = (state.test && state.test.sent_packets) || receiver.sent_packets;
-    setText("packet-count", Number.isFinite(Number(received)) ? `${received}${sent ? ` / ${sent}` : ""}` : "Waiting for packets");
+    setText("packet-count", hasNumber(received) ? `${received}${hasNumber(sent) ? ` / ${sent}` : ""}` : "Waiting for packets");
     const recovery = (state.controller || {}).recovery_time_ms || (state.last_result || {}).recovery_time_ms;
-    setText("recovery-time", Number.isFinite(Number(recovery)) ? format(recovery, " ms", 0) : "Waiting for reroute");
+    setText("recovery-time", hasNumber(recovery) ? format(recovery, " ms", 0) : "Waiting for reroute");
     const selected = (state.controller || {}).active_path || "A";
     setText("measurement-note", `Path ${selected} is the selected route. Both values are measured separately from directional switch-port counters; the other route can still show background or transition traffic.`);
   }
@@ -114,7 +114,6 @@
     const path = controller.active_path || "A";
     const congested = Boolean(controller.congestion_active);
     if (path !== activeRoute) {
-      previousRoute = activeRoute;
       activeRoute = path;
       routeChangeUntil = Date.now() + 3500;
       animationStarted = performance.now();
@@ -125,10 +124,7 @@
       const active = path === "B" ? routeB : routeA;
       active.classList.add("active");
       if (congested) active.classList.add("alert");
-      if (Date.now() < routeChangeUntil && previousRoute) {
-        (previousRoute === "B" ? routeB : routeA).classList.add("alert");
-        if (!congested) active.classList.add("verified");
-      }
+      if (Date.now() < routeChangeUntil && !congested) active.classList.add("verified");
     }
     const loads = state.path_utilisation_percent || {};
     setText("path-a-label", `Path A · ${percent(loads.A)}`);
@@ -184,19 +180,19 @@
   function animatePacket(now) {
     const stream = $("packet-stream");
     const running = latestState && latestState.test_running;
-    if (!running) { stream.replaceChildren(); requestAnimationFrame(animatePacket); return; }
+    if (!running) { if (stream.childElementCount) stream.replaceChildren(); requestAnimationFrame(animatePacket); return; }
     const congested = Boolean((latestState.controller || {}).congestion_active);
     stream.classList.toggle("packet-stream-congested", congested);
-    while (stream.children.length < 11) {
+    while (stream.children.length < 7) {
       const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       dot.setAttribute("class", stream.children.length === 0 ? "packet-dot lead" : "packet-dot");
-      dot.setAttribute("r", stream.children.length === 0 ? "6" : "4");
+      dot.setAttribute("r", stream.children.length === 0 ? "4.8" : "3.2");
       stream.append(dot);
     }
     const elapsed = now - animationStarted;
     [...stream.children].forEach((dot, index) => {
-      const spacing = congested ? 130 : 300;
-      const fraction = ((elapsed - index * spacing) % 3900 + 3900) % 3900 / 3900;
+      const spacing = congested ? 225 : 520;
+      const fraction = ((elapsed - index * spacing) % 5200 + 5200) % 5200 / 5200;
       const [x, y] = pointOnRoute(activeRoute === "B" ? [[130,184],[286,184],[452,273],[650,273],[790,184]] : [[130,184],[286,184],[452,95],[650,95],[790,184]], fraction);
       dot.setAttribute("cx", x); dot.setAttribute("cy", y);
     });
