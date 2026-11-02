@@ -35,8 +35,9 @@ behavior still needs to be checked in the Linux VM with Mininet, Open vSwitch,
 and OS-Ken. Follow [`docs/TEAM_RUNBOOK.md`](docs/TEAM_RUNBOOK.md) and record
 the output from those runs before describing the project as fully tested.
 
-The optional Tkinter dashboard is not the networking implementation. The raw
-terminal workflow is the primary demo and source of truth.
+The browser dashboard is a local view of the same manager API used by the raw
+terminal workflow. It never invents traffic data: Mininet, OS-Ken and the UDP
+receiver remain the source of truth.
 
 ## Network idea
 
@@ -62,7 +63,7 @@ Static mode reports congestion but keeps the flow on Path A.
 4. Connect OS-Ken to Open vSwitch and collect directional port counters.
 5. Add congestion detection, rule changes, and strict path verification.
 6. Repeat baseline, static, and adaptive experiments; export measured CSV.
-7. Keep the optional Tkinter dashboard as a later convenience layer.
+7. Use the local browser dashboard as a clear live view of the completed experiment.
 
 Each milestone is recorded in its own Git commit. The first `pingall` check is
 only a Mininet smoke test; controller connection and rerouting need separate
@@ -87,9 +88,10 @@ The complete VM setup and presentation sequence are in
 
 ## Run the raw Linux demo
 
-In Linux, start OS-Ken and the experiment manager in separate terminals. Use
-`raw_demo.py` from another terminal to start the network, run tests, inspect
-state, and stop the network. The exact commands are in [docs/SETUP.md](docs/SETUP.md).
+In Linux, start OS-Ken and the experiment manager in separate terminals. Then
+open `http://127.0.0.1:8765/` in Firefox for the live dashboard. `raw_demo.py`
+remains available from another terminal for direct API checks and scripting.
+The exact commands are in [docs/SETUP.md](docs/SETUP.md).
 The controller uses port 6653 explicitly so its listener matches the Mininet
 switches.
 

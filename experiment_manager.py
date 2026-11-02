@@ -26,6 +26,7 @@ CONTROLLER_STATE = RUN_DIR / "controller_state.json"
 CONTROLLER_COMMAND = RUN_DIR / "controller_command.json"
 PORT_MAP_FILE = RUN_DIR / "port_map.json"
 RESULTS_FILE = RESULTS_DIR / "experiments.csv"
+WEB_DIR = ROOT / "web"
 LIVE_SECONDS = 3.0
 
 
@@ -608,9 +609,29 @@ def make_handler(manager):
             self.end_headers()
             self.wfile.write(content)
 
+        def send_file(self, filename, content_type):
+            """Serve the small local dashboard without adding a web framework."""
+            try:
+                content = (WEB_DIR / filename).read_bytes()
+            except OSError:
+                self.send_json(500, {"error": "Dashboard file is unavailable"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(content)
+
         def do_GET(self):
             path = urlparse(self.path).path
-            if path == "/state":
+            if path == "/":
+                self.send_file("index.html", "text/html; charset=utf-8")
+            elif path == "/assets/app.css":
+                self.send_file("app.css", "text/css; charset=utf-8")
+            elif path == "/assets/app.js":
+                self.send_file("app.js", "application/javascript; charset=utf-8")
+            elif path == "/state":
                 self.send_json(200, manager.state())
             elif path == "/events":
                 self.send_json(200, {"events": manager.state()["events"]})

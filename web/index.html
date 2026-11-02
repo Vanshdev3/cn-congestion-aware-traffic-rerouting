@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f2ec">
+  <title>SDN Traffic Rerouting Lab</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">LOCAL NETWORKING EXPERIMENT</p>
+        <h1>SDN Traffic Rerouting Lab</h1>
+      </div>
+      <div class="connection" id="connection-status" aria-live="polite">
+        <span class="status-dot"></span><span>Checking manager…</span>
+      </div>
+    </header>
+
+    <section class="run-strip" aria-live="polite">
+      <div class="route-summary">
+        <p class="section-kicker" id="run-kicker">READY TO PREPARE</p>
+        <h2 id="run-title">Start the network when you are ready</h2>
+        <p id="run-copy">The dashboard shows real switch counters and receiver measurements after Mininet starts.</p>
+      </div>
+      <div class="run-state" id="run-state">OFFLINE</div>
+    </section>
+
+    <section class="controls-panel" aria-label="Experiment controls">
+      <div class="control-heading">
+        <p class="section-kicker">EXPERIMENT SETUP</p>
+        <p>Choose a repeatable test, then watch the selected route move when congestion is confirmed.</p>
+      </div>
+      <div class="control-grid">
+        <label class="range-control">
+          <span>Traffic offered</span>
+          <input id="rate" type="range" min="0.5" max="10" step="0.5" value="3">
+          <strong id="rate-value">3.0 Mbps</strong>
+        </label>
+        <label>
+          <span>Run length</span>
+          <div class="number-unit"><input id="duration" type="number" min="3" max="300" value="15"><em>seconds</em></div>
+        </label>
+        <label>
+          <span>Congestion threshold</span>
+          <div class="number-unit"><input id="threshold" type="number" min="10" max="100" value="75"><em>%</em></div>
+        </label>
+        <fieldset class="mode-choice">
+          <legend>Routing mode</legend>
+          <label><input type="radio" name="mode" value="static" checked><span>Static</span></label>
+          <label><input type="radio" name="mode" value="adaptive"><span>Adaptive</span></label>
+        </fieldset>
+      </div>
+      <div class="actions">
+        <button class="primary" id="start-test">Start test</button>
+        <button id="start-network">Start network</button>
+        <button id="apply-rate">Apply live rate</button>
+        <button id="apply-settings">Apply settings</button>
+        <button id="reset">Reset to Path A</button>
+        <button id="stop-test" class="quiet danger">Stop test</button>
+        <button id="stop-network" class="quiet danger">Stop network</button>
+        <button id="export" class="quiet">Export CSV</button>
+      </div>
+      <p class="action-note" id="action-note">Start the network first, then start a test. The manager remains the source of truth.</p>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="topology-panel">
+        <div class="panel-heading">
+          <div><p class="section-kicker">LIVE ROUTE</p><h2>Traffic path</h2></div>
+          <p class="legend"><i class="legend-active"></i> selected route <i class="legend-alert"></i> congestion <i class="legend-idle"></i> other route</p>
+        </div>
+        <div class="topology-wrap">
+          <svg class="topology" viewBox="0 0 920 360" role="img" aria-label="Two-path Mininet topology from host h1 to h2">
+            <path id="path-a" class="route" d="M130 184 L286 184 L452 95 L650 95 L790 184"></path>
+            <path id="path-b" class="route" d="M130 184 L286 184 L452 273 L650 273 L790 184"></path>
+            <g class="node host"><rect x="64" y="146" width="66" height="76" rx="8"></rect><text x="97" y="190">h1</text></g>
+            <g class="node"><rect x="253" y="146" width="66" height="76" rx="8"></rect><text x="286" y="190">s1</text></g>
+            <g class="node"><rect x="419" y="57" width="66" height="76" rx="8"></rect><text x="452" y="101">s2</text></g>
+            <g class="node"><rect x="419" y="235" width="66" height="76" rx="8"></rect><text x="452" y="279">s3</text></g>
+            <g class="node"><rect x="617" y="146" width="66" height="76" rx="8"></rect><text x="650" y="190">s4</text></g>
+            <g class="node host"><rect x="790" y="146" width="66" height="76" rx="8"></rect><text x="823" y="190">h2</text></g>
+            <circle id="packet" cx="130" cy="184" r="8"></circle>
+            <g class="route-label"><text x="360" y="113" id="path-a-label">Path A · —</text><text x="360" y="292" id="path-b-label">Path B · —</text></g>
+          </svg>
+        </div>
+        <p class="route-caption" id="route-caption">Both paths are shown. The highlighted line is the path chosen by the controller.</p>
+      </article>
+
+      <aside class="live-panel">
+        <div class="panel-heading"><div><p class="section-kicker">LIVE MEASUREMENTS</p><h2>What the network sees</h2></div></div>
+        <div class="metrics">
+          <div><span>Path A load</span><strong id="path-a-load">—</strong><div class="meter"><i id="path-a-meter"></i></div></div>
+          <div><span>Path B load</span><strong id="path-b-load">—</strong><div class="meter"><i id="path-b-meter"></i></div></div>
+          <div><span>Receiver rate</span><strong id="receiver-rate">—</strong></div>
+          <div><span>Packet loss</span><strong id="packet-loss">—</strong></div>
+          <div><span>Packets received</span><strong id="packet-count">—</strong></div>
+          <div><span>Recovery</span><strong id="recovery-time">—</strong></div>
+        </div>
+        <p class="measurement-note" id="measurement-note">Loads are directional switch-port measurements. Both routes are monitored even when only one carries the selected UDP flow.</p>
+      </aside>
+    </section>
+
+    <section class="bottom-grid">
+      <article class="result-panel">
+        <p class="section-kicker">LAST COMPLETED TEST</p>
+        <div id="last-result" class="empty-result">No completed test in this manager session.</div>
+      </article>
+      <article class="event-panel">
+        <div class="panel-heading"><div><p class="section-kicker">EXPERIMENT TIMELINE</p><h2>What is happening</h2></div><button id="clear-events" class="text-button">Show current run</button></div>
+        <ol id="event-list" class="event-list"><li class="muted">Waiting for the network manager.</li></ol>
+      </article>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

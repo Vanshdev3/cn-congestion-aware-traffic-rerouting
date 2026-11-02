@@ -67,7 +67,15 @@ sudo .venv/bin/osken-manager --ofp-tcp-listen-port 6653 controller.py
 sudo python3 experiment_manager.py
 ```
 
-Once both are running, use a third Linux terminal for the raw demo commands:
+Once both are running, open the local dashboard in Firefox:
+
+```bash
+firefox http://127.0.0.1:8765/
+```
+
+The dashboard is the recommended presentation view. It uses the manager's real
+state endpoint and does not create simulated measurements. Use a third Linux
+terminal for direct raw-demo checks when needed:
 
 ```bash
 python3 raw_demo.py start-network
@@ -89,11 +97,8 @@ starts Mininet, so do not also run `start_network.py` at the same time. Use
 `start_network.py` separately when you want the plain Mininet CLI for topology
 inspection.
 
-The Tkinter dashboard is optional and is not needed for the demo:
-
-```bash
-python3 dashboard.py
-```
+`dashboard.py` is the earlier Tkinter view. It is kept for reference only; use
+the browser dashboard at `http://127.0.0.1:8765/` for the demo.
 
 ## Wireshark note
 
