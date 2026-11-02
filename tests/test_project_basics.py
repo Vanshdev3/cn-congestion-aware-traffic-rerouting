@@ -179,6 +179,27 @@ class MeasurementTests(unittest.TestCase):
         self.assertEqual(summary["received_expected_packets"], 4)
         self.assertEqual(summary["packet_loss_percent"], 20)
 
+    def test_final_receiver_throughput_uses_packet_arrival_window(self):
+        tracker = SequenceTracker()
+        tracker.add(0)
+        start_ns = time.monotonic_ns() - 10_000_000_000
+        first_packet_ns = start_ns + 8_000_000_000
+        last_packet_ns = first_packet_ns + 1_000_000_000
+        summary = make_summary(
+            "unit-test",
+            tracker,
+            1_000_000,
+            start_ns,
+            first_packet_ns,
+            last_packet_ns,
+            0,
+            0,
+            {"sent_packets": 1, "first_sequence": 0, "last_sequence": 0},
+            True,
+        )
+        self.assertAlmostEqual(summary["elapsed_seconds"], 1.0, places=3)
+        self.assertAlmostEqual(summary["receiver_throughput_mbps"], 8.0, places=3)
+
     def test_udp_header_contains_sequence_and_timestamp(self):
         packet = HEADER.pack(42, 123456789)
         self.assertEqual(HEADER.unpack(packet), (42, 123456789))

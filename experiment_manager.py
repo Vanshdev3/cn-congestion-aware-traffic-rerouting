@@ -299,7 +299,24 @@ class ExperimentManager:
             self.add_event(
                 f"UDP test {test_id} started at {rate_mbps:g} Mbps in {mode} mode"
             )
+            threading.Thread(
+                target=self.finish_test_when_sender_stops,
+                args=(test_id,),
+                daemon=True,
+            ).start()
             return {"started": True, "test_id": test_id}
+
+    def finish_test_when_sender_stops(self, test_id):
+        """End the receiver as soon as this test's sender has finished."""
+        while True:
+            with self.lock:
+                if not self.current_test or self.current_test["test_id"] != test_id:
+                    return
+                sender = self.sender_process
+                if sender and sender.poll() is not None:
+                    self.finish_test_if_ready()
+                    return
+            time.sleep(0.2)
 
     def finish_test_if_ready(self):
         if self.current_test and self.sender_process and self.sender_process.poll() is not None:

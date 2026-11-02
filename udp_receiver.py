@@ -169,7 +169,13 @@ def make_summary(
     final,
 ):
     now_ns = time.monotonic_ns()
-    elapsed = max((now_ns - start_ns) / 1_000_000_000, 0.000001)
+    # A final result should describe the interval in which packets arrived.
+    # This keeps a delayed status request from making throughput look lower.
+    if final and first_receive_ns is not None and last_receive_ns is not None:
+        elapsed_ns = last_receive_ns - first_receive_ns
+    else:
+        elapsed_ns = now_ns - start_ns
+    elapsed = max(elapsed_ns / 1_000_000_000, 0.000001)
     summary = {
         "test_id": test_id,
         "final": final,
