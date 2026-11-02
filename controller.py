@@ -85,7 +85,10 @@ class CongestionController(app_manager.OSKenApp):
         self.congestion_confirmed_at = None
         self.congestion_confirmed_ns = None
         self.last_event = None
-        self.events = []
+        # OSKenApp uses ``self.events`` for its internal message queue.
+        # Keep controller history under a different name so we do not
+        # replace the queue that OS-Ken's event loop reads from.
+        self.event_log = []
         self.route_status = "waiting_for_switches"
         self.last_error = None
         self.pending_port_replies = set()
@@ -101,8 +104,8 @@ class CongestionController(app_manager.OSKenApp):
 
     def add_event(self, message, kind="info"):
         event = {"time": now_iso(), "kind": kind, "message": message}
-        self.events.append(event)
-        self.events = self.events[-100:]
+        self.event_log.append(event)
+        self.event_log = self.event_log[-100:]
         LOG.info(message)
 
     def expected_dpids(self):
@@ -397,7 +400,7 @@ class CongestionController(app_manager.OSKenApp):
         self.sample_started_ns = None
         self.last_port_request_ns = 0
         self.route_status = "resetting"
-        self.events.clear()
+        self.event_log.clear()
         self.add_event("Experiment measurements and controller state reset")
         if self.all_switches_connected() and self.port_map:
             self.start_route_change("A", reason="initial")
@@ -809,7 +812,7 @@ class CongestionController(app_manager.OSKenApp):
             "links": path_measurements,
             "last_error": self.last_error,
             "command_id": self.last_command_id,
-            "events": self.events,
+            "events": self.event_log,
         }
         write_json(self.state_file, state)
 

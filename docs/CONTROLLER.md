@@ -7,6 +7,11 @@ the Linux environment:
 sudo .venv/bin/osken-manager --ofp-tcp-listen-port 6653 controller.py
 ```
 
+Use OS-Ken 3.x for this project. OS-Ken 4 removes the `osken-manager` command
+used by the demo, so `requirements.txt` keeps the dependency below version 4.
+The controller stores its event history in `self.event_log`; `self.events` is
+reserved by OS-Ken for its internal message queue.
+
 The explicit port is important: OS-Ken listens on port 6633 by default, while
 this project's Mininet switches connect on port 6653. The OS-Ken listener
 option is documented in its [configuration parameters](https://github.com/openstack/os-ken/blob/master/doc/source/parameters.rst).
