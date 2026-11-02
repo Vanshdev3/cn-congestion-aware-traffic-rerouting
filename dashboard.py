@@ -353,7 +353,24 @@ class Dashboard:
         self.draw_topology(state.get("links", {}) if live else {}, active_path,
                            path_values, congestion)
         self.show_result(state.get("last_result"))
-        self.add_events(state.get("events", []))
+        events = state.get("events", [])
+        test = state.get("test") or {}
+        result = state.get("last_result") or {}
+        current_test_id = test.get("test_id") or result.get("test_id")
+        if current_test_id:
+            matching = [event for event in events
+                        if current_test_id in event.get("message", "")]
+            # Controller events do not carry the test ID, so use the test's
+            # start event as the boundary and show only later events.
+            start_index = next((i for i, event in enumerate(events)
+                                if current_test_id in event.get("message", "")), None)
+            if start_index is not None:
+                events = events[start_index:]
+            elif matching:
+                events = matching
+            elif not state.get("test_running"):
+                events = []
+        self.add_events(events)
         self.last_state = state
 
     def set_metric(self, name, value):
@@ -366,15 +383,21 @@ class Dashboard:
     def draw_topology(self, links, active_path, path_values, congestion):
         canvas = self.topology
         canvas.delete("all")
-        width = max(canvas.winfo_width(), 760)
-        height = max(canvas.winfo_height(), 300)
+        width = max(canvas.winfo_width(), 420)
+        height = max(canvas.winfo_height(), 260)
+        margin = 42
+        left_x = margin
+        right_x = width - margin
+        quarter_x = left_x + (right_x - left_x) * .25
+        center_x = left_x + (right_x - left_x) * .5
+        three_quarter_x = left_x + (right_x - left_x) * .75
         points = {
-            "h1": (48, height * .5),
-            "s1": (width * .25, height * .5),
-            "s2": (width * .49, height * .24),
-            "s3": (width * .49, height * .76),
-            "s4": (width * .74, height * .5),
-            "h2": (width - 48, height * .5),
+            "h1": (left_x, height * .5),
+            "s1": (quarter_x, height * .5),
+            "s2": (center_x, height * .22),
+            "s3": (center_x, height * .78),
+            "s4": (three_quarter_x, height * .5),
+            "h2": (right_x, height * .5),
         }
         paths = {
             "h1-s1": ("h1", "s1", {"A", "B"}),
@@ -423,7 +446,7 @@ class Dashboard:
             canvas.create_oval(x - 9, y - 9, x + 9, y + 9,
                                fill=packet_color, outline="#ffffff", width=2,
                                tags="packet")
-            canvas.create_text(width - 90, 20,
+            canvas.create_text(width - 100, 18,
                                text="CONGESTED PACKET" if congestion else "UDP PACKET",
                                fill=packet_color, font=("Segoe UI", 9, "bold"))
 
