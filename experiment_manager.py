@@ -370,6 +370,7 @@ class ExperimentManager:
             raise RuntimeError("The receiver did not save its final measurements")
 
         controller = self.controller_state() or {}
+        route_timing = controller.get("last_congestion_route_timing") or {}
         result = {
             "test_id": test["test_id"],
             "mode": test["mode"],
@@ -382,9 +383,9 @@ class ExperimentManager:
             "path_utilisation_percent": self.fresh_path_utilisation(controller),
             "recovery_time_ms": controller.get("recovery_time_ms"),
             "rule_installation_time_ms": controller.get("rule_installation_time_ms"),
-            "congestion_confirmed_at": controller.get("congestion_confirmed_at"),
-            "path_b_verified_at": controller.get("path_b_verified_at"),
-            "congestion_route_timing": controller.get("last_congestion_route_timing"),
+            "congestion_confirmed_at": route_timing.get("congestion_confirmed_at"),
+            "path_b_verified_at": route_timing.get("path_verified_at"),
+            "congestion_route_timing": route_timing or None,
             "finished_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         }
         self.append_result(result)
