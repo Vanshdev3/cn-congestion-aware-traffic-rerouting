@@ -1,10 +1,48 @@
 import time
+import sys
+import types
 import unittest
 
 from flow_rules import rules_for_path
 from metrics import path_utilisation, rate_from_counter, utilisation_percent
 from udp_receiver import SequenceTracker, make_summary
 from udp_sender import HEADER
+
+
+def load_discover_port_map():
+    """Load the map builder without requiring Mininet on the test machine."""
+    mininet = types.ModuleType("mininet")
+    mininet_link = types.ModuleType("mininet.link")
+    mininet_net = types.ModuleType("mininet.net")
+    mininet_node = types.ModuleType("mininet.node")
+    mininet_topo = types.ModuleType("mininet.topo")
+    mininet_link.TCLink = type("TCLink", (), {})
+    mininet_net.Mininet = type("Mininet", (), {})
+    mininet_node.OVSSwitch = type("OVSSwitch", (), {})
+    mininet_node.RemoteController = type("RemoteController", (), {})
+    mininet_topo.Topo = type("Topo", (), {})
+    mininet.__path__ = []
+    modules = {
+        "mininet": mininet,
+        "mininet.link": mininet_link,
+        "mininet.net": mininet_net,
+        "mininet.node": mininet_node,
+        "mininet.topo": mininet_topo,
+    }
+    previous = {name: sys.modules.get(name) for name in modules}
+    sys.modules.update(modules)
+    try:
+        import topology
+        return topology.discover_port_map
+    finally:
+        for name, module in previous.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+
+discover_port_map = load_discover_port_map()
 
 
 def example_port_map():
@@ -30,6 +68,57 @@ def example_port_map():
 
 
 class MeasurementTests(unittest.TestCase):
+    def test_port_discovery_reads_ports_from_mininet_nodes(self):
+        class FakeNode:
+            def __init__(self, name, ports):
+                self.name = name
+                self.ports = ports
+
+        class FakeInterface:
+            def __init__(self, node, name):
+                self.node = node
+                self.name = name
+
+        class FakeLink:
+            def __init__(self, left, right):
+                self.intf1 = left
+                self.intf2 = right
+
+        class FakeNetwork:
+            def __init__(self):
+                self.nodes = {}
+                self.links = {}
+                for name in ("h1", "h2", "s1", "s2", "s3", "s4"):
+                    self.nodes[name] = FakeNode(name, {})
+
+                link_specs = [
+                    ("h1", "s1", None, 1),
+                    ("s1", "s2", 2, 1),
+                    ("s2", "s4", 2, 1),
+                    ("s1", "s3", 3, 1),
+                    ("s3", "s4", 2, 2),
+                    ("s4", "h2", 3, None),
+                ]
+                for left, right, left_port, right_port in link_specs:
+                    left_number = left_port or max(self.nodes[left].ports.values(), default=0) + 1
+                    right_number = right_port or max(self.nodes[right].ports.values(), default=0) + 1
+                    left_intf = FakeInterface(self.nodes[left], f"{left}-eth{left_number}")
+                    right_intf = FakeInterface(self.nodes[right], f"{right}-eth{right_number}")
+                    self.nodes[left].ports[left_intf] = left_number
+                    self.nodes[right].ports[right_intf] = right_number
+                    self.links[(left, right)] = FakeLink(left_intf, right_intf)
+
+            def get(self, name):
+                return self.nodes[name]
+
+            def linksBetween(self, left, right):
+                return [self.links.get((left.name, right.name)) or self.links[(right.name, left.name)]]
+
+        port_map, _lines = discover_port_map(FakeNetwork())
+        self.assertEqual(port_map["links"]["s1-s2"]["left_port"], 2)
+        self.assertEqual(port_map["links"]["s1-s2"]["right_port"], 1)
+        self.assertEqual(port_map["links"]["s4-h2"]["left_port"], 3)
+
     def test_rate_uses_counter_delta_and_elapsed_time(self):
         self.assertEqual(rate_from_counter(100, 1100, 2), 4000)
         self.assertIsNone(rate_from_counter(1100, 100, 2))

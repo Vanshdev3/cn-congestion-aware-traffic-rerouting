@@ -81,8 +81,16 @@ def discover_port_map(network):
     for name, left, right, left_port, right_port, bandwidth in LINKS:
         link = network.linksBetween(network.get(left), network.get(right))[0]
         ends = [
-            (link.intf1.node.name, link.intf1.name, link.intf1.port),
-            (link.intf2.node.name, link.intf2.name, link.intf2.port),
+            (
+                link.intf1.node.name,
+                link.intf1.name,
+                link.intf1.node.ports[link.intf1],
+            ),
+            (
+                link.intf2.node.name,
+                link.intf2.name,
+                link.intf2.node.ports[link.intf2],
+            ),
         ]
         by_node = {node_name: (interface, port) for node_name, interface, port in ends}
         left_interface, actual_left_port = by_node[left]
