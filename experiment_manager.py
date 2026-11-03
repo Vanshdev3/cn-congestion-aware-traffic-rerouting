@@ -521,6 +521,14 @@ class ExperimentManager:
 
             receiver_live = None
             if self.current_test:
+                self.current_test["sent_packets"] = read_json(
+                    self.current_test["sender_summary"]
+                )
+                self.current_test["sent_packets"] = (
+                    self.current_test["sent_packets"].get("sent_packets")
+                    if self.current_test["sent_packets"] else None
+                )
+            if self.current_test:
                 current = read_json(self.current_test["receiver_stats"])
                 if current and self.receiver_process and self.receiver_process.poll() is None:
                     age = age_seconds_from_unix_ns(current.get("measured_at_unix_ns"))
@@ -557,6 +565,7 @@ class ExperimentManager:
                 "controller": controller,
                 "links": links,
                 "path_utilisation_percent": path_utilisation,
+                "port_map": self.port_map,
                 "receiver_live": receiver_live,
                 "last_result": self.last_result,
                 "events": events[-200:],

@@ -100,12 +100,22 @@
     setText("receiver-rate", hasNumber(receiver.receiver_throughput_mbps) ? format(receiver.receiver_throughput_mbps, " Mbps", 2) : "Waiting for packets");
     setText("packet-loss", hasNumber(receiver.packet_loss_percent) ? percent(receiver.packet_loss_percent) : "Calculated at finish");
     const received = receiver.received_expected_packets;
-    const sent = (state.test && state.test.sent_packets) || receiver.sent_packets;
+    const sent = (state.test && state.test.sent_packets) ?? receiver.sent_packets;
     setText("packet-count", hasNumber(received) ? `${received}${hasNumber(sent) ? ` / ${sent}` : ""}` : "Waiting for packets");
     const recovery = (state.controller || {}).recovery_time_ms || (state.last_result || {}).recovery_time_ms;
     setText("recovery-time", hasNumber(recovery) ? format(recovery, " ms", 0) : "Waiting for reroute");
     const selected = (state.controller || {}).active_path || "A";
     setText("measurement-note", `Path ${selected} is the selected route. Both values are measured separately from directional switch-port counters; the other route can still show background or transition traffic.`);
+    for (const name of ["A", "B"]) {
+      const pathLinks = new Set((((state.port_map || {}).forward_counters || {})[name] || []).map((entry) => entry.link));
+      const busiest = Object.entries(state.links || {})
+        .filter(([linkName, sample]) => pathLinks.has(linkName) && sample.fresh && hasNumber(sample.rate_bps) && hasNumber(sample.capacity_mbps))
+        .map(([linkName, sample]) => ({ linkName, ...sample }))
+        .sort((left, right) => (right.utilisation_percent || 0) - (left.utilisation_percent || 0))[0];
+      $("formula-" + name.toLowerCase()).textContent = busiest
+        ? `Path ${name}, ${busiest.linkName}: (${Math.round(busiest.rate_bps).toLocaleString()} bps) ÷ (${busiest.capacity_mbps} Mbps × 1,000,000) × 100 = ${format(busiest.utilisation_percent, "%", 1)}`
+        : `Path ${name}: waiting for fresh byte-counter samples`;
+    }
   }
 
   function updateTopology(state) {

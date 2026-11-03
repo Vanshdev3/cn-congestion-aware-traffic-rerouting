@@ -62,6 +62,7 @@ class CongestionController(app_manager.OSKenApp):
         self.low_samples = 0
         self.cooldown_seconds = 5
         self.last_reroute_ns = 0
+        self.congestion_rerouted = False
 
         self.active_path = None
         self.candidate_path = None
@@ -386,6 +387,7 @@ class CongestionController(app_manager.OSKenApp):
         self.link_measurements.clear()
         self.latest_path_utilisation = {"A": None, "B": None}
         self.last_reroute_ns = 0
+        self.congestion_rerouted = False
         self.last_error = None
         self.transition = None
         self.candidate_path = None
@@ -501,6 +503,8 @@ class CongestionController(app_manager.OSKenApp):
 
     def evaluate_congestion(self):
         if not self.active_path or self.transition:
+            return
+        if self.mode == "adaptive" and self.congestion_rerouted:
             return
         current = self.latest_path_utilisation.get(self.active_path)
         if current is None:
@@ -733,6 +737,7 @@ class CongestionController(app_manager.OSKenApp):
         self.add_event(f"Traffic-counter changes verified on Path {self.active_path}")
         if transition["reason"] == "congestion":
             self.last_congestion_route_timing = self.last_route_timing
+            self.congestion_rerouted = True
 
         if transition["reason"] == "congestion" and transition["confirmed_ns"]:
             verified_ns = time.monotonic_ns()
@@ -802,6 +807,7 @@ class CongestionController(app_manager.OSKenApp):
             "flow_entries_verified": self.flow_entries_verified,
             "flow_statistics": self.flow_measurements,
             "congestion_active": self.congestion_active,
+            "congestion_rerouted": self.congestion_rerouted,
             "congestion_confirmed_at": self.congestion_confirmed_at,
             "path_b_verified_at": self.path_b_verified_at,
             "recovery_time_ms": self.recovery_time_ms,

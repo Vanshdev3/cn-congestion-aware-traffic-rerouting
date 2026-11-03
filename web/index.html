@@ -100,6 +100,13 @@
           <div><span>Recovery</span><strong id="recovery-time">Waiting for reroute</strong><small>Detection to new-path counters</small></div>
         </div>
         <p class="measurement-note" id="measurement-note">Loads are directional switch-port measurements. Both routes are monitored even when only one carries the selected UDP flow.</p>
+        <details class="formula-panel">
+          <summary>How the live path load is calculated</summary>
+          <p>The busiest fresh forward link on each route:</p>
+          <code id="formula-a">Path A: waiting for fresh byte-counter samples</code>
+          <code id="formula-b">Path B: waiting for fresh byte-counter samples</code>
+          <small>Utilisation = (byte-counter change × 8 ÷ sample time) ÷ (link capacity in Mbps × 1,000,000) × 100. The bar is capped visually; the measured percentage is shown unchanged.</small>
+        </details>
       </aside>
     </section>
 
