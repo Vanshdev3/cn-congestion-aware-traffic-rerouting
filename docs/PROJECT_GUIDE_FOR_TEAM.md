@@ -1,112 +1,148 @@
-# Congestion-Aware Traffic Rerouting: Team Guide
+# Congestion-Aware Traffic Rerouting
 
-This guide explains the project from the networking idea to the live demo. It
-is written for a teammate who has not used Mininet, SDN, or this repository
-before. Commands below are run inside the Kali Linux VM, from the repository
-folder, unless a note says otherwise.
+## Complete guide for the project team
 
-## 1. Project in one paragraph
+This guide explains the project from the networking basics to the Kali demo. It is for teammates who are new to SDN, Mininet, and this codebase.
 
-We build a small network in software with two different routes between a UDP
-sender and receiver. An SDN controller reads real Open vSwitch port counters.
-When the active route stays above a chosen load threshold, adaptive mode changes
-the OpenFlow rules to use the other route. We verify the new rules and require
-the alternate route's counters to increase before calling the reroute
-successful. The receiver measures delivered UDP traffic, and each finished run
-is saved as a row in a CSV file.
+It covers:
 
-This is a Mininet emulation on one Linux computer. It does not change physical
-network equipment.
+- The network layout and what each software component does
+- Static and adaptive routing
+- The three-terminal setup and demo sequence
+- The measurements, formulas, and CSV results
+- What counts as proof that rerouting worked
 
-## 2. What the project demonstrates
+The project runs inside a Kali Linux virtual machine. Mininet creates a virtual network on that Linux machine. The experiment sends real UDP packets through that virtual network, but it does not control physical routers or switches.
 
-- Build a topology with two hosts and four OpenFlow switches.
-- Send real UDP datagrams with sequence numbers from `h1` to `h2`.
-- Limit link rates to create a controlled bottleneck.
-- Read directional switch-port counters through OS-Ken/OpenFlow 1.3.
-- Calculate link load and detect sustained congestion.
-- Compare static routing with controller-driven adaptive rerouting.
-- Verify forwarding rules and traffic-counter movement after a route change.
-- Measure receiver throughput, packet loss, and recovery time.
-- Repeat tests with a reset and keep the results in CSV.
+> **How to read this guide:** implementation descriptions are based on the repository. Full end-to-end completion still requires evidence from a run in the team's Kali VM. Example numbers below explain calculations; they are not claimed as measured project results.
 
-## 3. Network layout
+---
+
+## 1. Project overview
+
+The project asks a practical networking question:
+
+> If the route carrying traffic becomes congested, can a controller move that traffic to a better route and verify that packets actually use it?
+
+We build two routes between a UDP sender and receiver. An SDN controller reads Open vSwitch port counters. In adaptive mode, when the active route remains above a configured congestion threshold, the controller checks the alternative route, changes the forwarding rules, and verifies counter movement on the new route.
+
+The receiver measures delivered traffic. Each completed experiment is appended to a CSV file so static and adaptive runs can be compared.
+
+### What the project demonstrates
+
+1. Create a two-path network in Mininet.
+2. Send numbered UDP packets from `h1` to `h2`.
+3. Set different capacities on the two middle paths.
+4. Collect directional port statistics from Open vSwitch.
+5. Calculate link utilisation and detect sustained congestion.
+6. Compare static and adaptive routing.
+7. Verify flow rules and traffic movement after rerouting.
+8. Measure throughput, packet loss, and recovery time.
+9. Reset the experiment and retain completed results in CSV.
+
+---
+
+## 2. The network layout
 
 ```text
-                              PATH A (2 Mbps bottleneck links)
-                         +--- s2 ----------------+
-                         |                       |
- h1 (UDP sender) -- s1 --+                       +-- s4 -- h2 (UDP receiver)
-                         |                       |
-                         +--- s3 ----------------+
-                              PATH B (5 Mbps bottleneck links)
+                            PATH A
+                       2 Mbps links
+                  +---- s2 ---------+
+                  |                 |
+h1 (sender) -- s1-+                 +-- s4 -- h2 (receiver)
+                  |                 |
+                  +---- s3 ---------+
+                            PATH B
+                       5 Mbps links
 
- Path A: h1 -> s1 -> s2 -> s4 -> h2
- Path B: h1 -> s1 -> s3 -> s4 -> h2
+Path A: h1 -> s1 -> s2 -> s4 -> h2
+Path B: h1 -> s1 -> s3 -> s4 -> h2
 ```
 
-Both routes share the sender link (`h1-s1`) and the receiver-side link
-(`s4-h2`). They differ in the middle. Path A's `s1-s2` and `s2-s4` links are
-each configured at 2 Mbps. Path B's `s1-s3` and `s3-s4` links are each 5 Mbps.
-Host-facing links are 10 Mbps.
+There are **two hosts** and **four switches**. The hosts and switches are virtual Mininet nodes.
 
-The topology is defined in `topology.py`. Mininet creates Linux network
-interfaces and Open vSwitch bridges. At startup, the manager discovers the
-actual interface and switch-port numbers and writes `run/port_map.json`. The
-controller uses this discovered map for both counter requests and flow rules,
-so its port assumptions match the topology Mininet created.
+| Link group | Configured capacity | Purpose |
+|---|---:|---|
+| `h1-s1` and `s4-h2` | 10 Mbps each | Host-facing links shared by both routes |
+| `s1-s2` and `s2-s4` | 2 Mbps each | Path A's middle bottleneck |
+| `s1-s3` and `s3-s4` | 5 Mbps each | Path B's middle bottleneck |
 
-## 4. Software and each part's job
+The bottleneck is the link that limits the route's end-to-end traffic. Path A is intentionally narrower in the middle than Path B. At an offered rate of 3 Mbps, Path A may become congested while Path B may have enough capacity to carry the flow.
 
-| Software / file | Job in this project |
+`topology.py` defines the links and expected ports. When the network starts, the manager discovers the actual Mininet interface and switch-port numbers and saves them in `run/port_map.json`. The controller uses that discovered map for its counter requests and forwarding rules.
+
+---
+
+## 3. Software: what each part does
+
+| Component | Job |
 |---|---|
-| Kali Linux VM | Provides the Linux kernel and root access required by Mininet and OVS. |
-| Mininet | Creates virtual hosts, links, interfaces, and a commandable network. |
-| Open vSwitch (OVS) | Acts as the four software switches and forwards packets using flow rules. |
-| OpenFlow 1.3 | Protocol used by the switches to communicate with the controller. |
-| OS-Ken | Python SDN controller framework; runs `controller.py`. |
-| `experiment_manager.py` | Starts/stops Mininet and traffic processes, exposes the local HTTP API, and saves final results. |
-| `udp_receiver.py` | Runs inside Mininet host `h2`; counts received UDP packets and writes measurements. |
-| `udp_sender.py` | Runs inside Mininet host `h1`; sends numbered UDP packets at a controlled rate. |
-| `web/` dashboard | Browser controls and live view served by the experiment manager at port 8765. |
-| `raw_demo.py` | Optional terminal client for the same manager commands and state. |
-| Wireshark | Optional packet capture tool for showing actual UDP traffic. |
+| Kali Linux VM | Runs the Linux networking tools and gives Mininet the required system access. |
+| Mininet | Creates the virtual hosts, links, interfaces, and network topology. |
+| Open vSwitch (OVS) | Provides the four software switches and forwards packets using flow rules. |
+| OpenFlow 1.3 | Carries statistics requests and rule updates between OVS and the controller. |
+| OS-Ken | Runs `controller.py`; reads switch statistics and decides whether to change the route. |
+| Experiment manager | Runs `experiment_manager.py`; starts Mininet and traffic, serves the dashboard/API, and saves results. |
+| UDP sender | Runs inside `h1`; sends numbered packets at a configured rate. |
+| UDP receiver | Runs inside `h2`; counts arrivals and calculates receiver statistics. |
+| Browser dashboard | Provides real controls and displays manager/controller measurements at `127.0.0.1:8765`. |
+| `raw_demo.py` | Optional terminal client for sending the same commands and reading manager state. |
+| Wireshark | Captures and inspects packets on a Mininet interface. |
 
-Python's built-in HTTP server serves the dashboard and API. The browser UI has
-no Node, React, Flask, or external runtime dependency.
+The dashboard uses Python's built-in HTTP server. It does not need Node.js, React, Flask, or an internet connection.
 
-## 5. SDN and OpenFlow in simple terms
+### SDN in plain language
 
-In a traditional switch, the forwarding logic is configured inside the switch.
-In Software Defined Networking (SDN), a controller makes forwarding decisions
-and communicates them to programmable switches.
+In Software Defined Networking (SDN), a controller makes forwarding decisions and programmable switches carry them out.
 
-In this project:
+- **Control plane:** OS-Ken decides which route should carry the selected flow.
+- **Data plane:** OVS forwards packets using flow entries installed by OS-Ken.
+- **Control protocol:** OpenFlow 1.3 carries statistics and rule changes between them.
+- **Experiment manager:** starts and coordinates the network and traffic programs.
 
-1. OS-Ken is the control plane. It watches switch statistics and decides which
-   route should carry the selected UDP flow.
-2. OVS switches are the data plane. They forward packets according to flow
-   entries installed by the controller.
-3. OpenFlow is the control channel between the switches and OS-Ken. The switches
-   connect to TCP port 6653 using OpenFlow 1.3.
-4. The experiment manager is the experiment operator. It creates Mininet,
-   starts the sender and receiver, and gives the dashboard a local API.
+A flow entry matches packet fields and specifies an action, such as sending a packet out a particular switch port. During a route change, the controller installs the required rules, waits for switch barriers, checks the flow entries, and then checks counters on the new route.
 
-A flow entry is a rule with match fields and an action. Here, the important
-match fields identify the UDP flow; the action chooses an output port. The
-controller installs matching forwarding steps on each switch along the route.
-It waits for switch barriers and checks the flow entries before reporting the
-route as installed.
+---
 
-## 6. Three-terminal setup
+## 4. Static mode and adaptive mode
 
-Open three terminal windows inside Kali. Keep Terminals 1 and 2 running for the
-whole demonstration. Do not start Mininet separately with `sudo mn` or
-`start_network.py` while the experiment manager owns the network.
+Both modes begin from a known route, Path A, and both continue monitoring the paths.
 
-### Terminal 1: start OS-Ken
+### Static mode
 
-From the project directory:
+1. The manager resets the experiment and prepares Path A.
+2. The sender sends UDP packets at the chosen offered rate.
+3. The controller measures path utilisation.
+4. If the threshold is met for three consecutive samples, it reports congestion.
+5. Static mode keeps the traffic on Path A; it does not reroute because of congestion.
+
+Static mode is the comparison run. It shows what happens when the route remains fixed.
+
+### Adaptive mode
+
+1. The manager resets the experiment and prepares Path A.
+2. The sender sends at the chosen offered rate while the controller samples both paths.
+3. If Path A meets or exceeds the threshold for three consecutive samples, congestion is confirmed.
+4. The controller checks whether Path B has a fresh, lower, eligible measured load.
+5. If Path B is eligible, the controller installs its forwarding rules.
+6. The controller checks the flow entries and waits for counters on Path B's unique links to increase.
+7. After counter movement is verified, the controller records the route change and recovery time.
+
+The intended experiment is to keep the verified alternate route for the remainder of the run, then use **Reset to Path A** before another experiment. A route change at a low offered rate such as 1 Mbps should not be assumed correct: check the mode, threshold, counter samples, and controller events to find the cause.
+
+### Why use both modes?
+
+Static mode is the baseline. Adaptive mode is the response being evaluated. Use the same offered rate, duration, threshold, and initial route for both runs so the comparison is meaningful.
+
+---
+
+## 5. Three-terminal setup in Kali
+
+Open three terminal windows in the VM. Run commands from the project folder. Keep Terminals 1 and 2 running while you use the dashboard.
+
+Do not also start a separate `sudo mn` network or `start_network.py` while the experiment manager is controlling Mininet.
+
+### Terminal 1: OS-Ken controller
 
 ```bash
 cd ~/cn-congestion-aware-traffic-rerouting
@@ -114,35 +150,34 @@ source .venv/bin/activate
 sudo .venv/bin/osken-manager --ofp-tcp-listen-port 6653 controller.py
 ```
 
-Leave this terminal open. It should load `controller.py` and wait for switches.
-The Eventlet deprecation notice is a dependency warning; the key check is that
-the process stays running and later logs switch connections.
+Leave it open. The controller should stay running and later log that the OpenFlow switches connected. The Eventlet deprecation notice is a dependency warning; it does not by itself mean the controller failed.
 
-### Terminal 2: start the experiment manager
+### Terminal 2: experiment manager
 
 ```bash
 cd ~/cn-congestion-aware-traffic-rerouting
 sudo python3 experiment_manager.py
 ```
 
-It should print that it is listening at `http://127.0.0.1:8765`. When the
-network starts, it also prints the real Mininet interface and port map. Keep
-this terminal open. The manager needs root because it creates Mininet and OVS
-interfaces.
+Wait for:
 
-### Terminal 3: open the dashboard
+```text
+Experiment manager listening at http://127.0.0.1:8765
+```
+
+The manager needs root privileges to create Mininet and OVS interfaces. On network start, it prints the discovered interface and switch-port map.
+
+### Terminal 3: dashboard
 
 ```bash
 firefox http://127.0.0.1:8765/
 ```
 
-The browser can also be opened before starting the network. It will show the
-manager connection and a network-stopped state. After updating the repository,
-use `Ctrl+Shift+R` in Firefox to reload the current dashboard files.
+The dashboard can open before the network starts. After pulling updated files from GitHub, press `Ctrl+Shift+R` in Firefox to reload them.
 
-### Optional terminal control
+### Optional terminal controls
 
-Instead of clicking the browser UI, Terminal 3 can send commands directly:
+Instead of using the dashboard controls, Terminal 3 can call the same experiment manager:
 
 ```bash
 python3 raw_demo.py status
@@ -150,294 +185,401 @@ python3 raw_demo.py start-network
 python3 raw_demo.py events
 ```
 
-Use either the UI or `raw_demo.py` for a given action. They both call the same
-experiment manager; they are not separate experiments.
+The dashboard and `raw_demo.py` are two ways to control the same running experiment.
 
-## 7. Start cleanly and recover from a stale Mininet run
+---
 
-Stop foreground processes with `Ctrl+C` in their terminals. If an old manager
-is still occupying port 8765, inspect it and stop only that listener:
+## 6. Clean start and common recovery commands
+
+Stop foreground services with `Ctrl+C` in their own terminal windows.
+
+If port 8765 is already in use, inspect and stop the old manager listener:
 
 ```bash
 sudo fuser -v 8765/tcp
 sudo fuser -k 8765/tcp
 ```
 
-If Mininet reports `RTNETLINK answers: File exists` while creating virtual
-interfaces, clean its stale network state:
+If Mininet reports `RTNETLINK answers: File exists`, stop the manager and clear stale Mininet state:
 
 ```bash
 sudo mn -c
 ```
 
-Then start Terminal 1, Terminal 2, and Terminal 3 in that order. `sudo mn -c`
-cleans Mininet-created state; it is a recovery step, not a command to run during
-an active experiment.
+Then start the controller, manager, and dashboard again in that order. Do not run `sudo mn -c` while an experiment is active.
 
-To update code from GitHub before a demo:
+To update the Kali checkout:
 
 ```bash
 cd ~/cn-congestion-aware-traffic-rerouting
 git pull
 ```
 
-Restart the experiment manager after pulling because it serves the dashboard
-files from disk. Restart the controller too if `controller.py` changed.
+Restart the manager after pulling because it serves the dashboard files from disk. Restart the controller as well if `controller.py` changed.
 
-## 8. Recommended demo sequence
+---
 
-Use these settings for a clear adaptive reroute: Adaptive mode, 3 Mbps offered
-rate, 15 seconds, and 75% threshold. Three Mbps exceeds Path A's 2 Mbps
-bottleneck but is below Path B's 5 Mbps bottleneck.
+## 7. Recommended demonstration
 
-1. Start the network from the dashboard. Wait for all switches and the
-   controller to become available.
-2. Choose **Adaptive**, set **3 Mbps**, **15 seconds**, and **75%**.
-3. Click **Reset to Path A**. Confirm the event log reports Path A rules
-   installed and verified.
+Use the same settings for the static and adaptive comparison:
+
+| Setting | Example value |
+|---|---:|
+| Offered rate | 3 Mbps |
+| Duration | 15 seconds |
+| Congestion threshold | 75% |
+| Starting route | Path A |
+
+These are demonstration settings, not guaranteed results. Three Mbps is above Path A's configured 2 Mbps middle-link capacity and below Path B's 5 Mbps middle-link capacity.
+
+### Adaptive demo steps
+
+1. Start the network and wait until the controller is live.
+2. Select **Adaptive** and set the offered rate, duration, and threshold.
+3. Click **Reset to Path A**. Check that Path A rules were installed and verified.
 4. Click **Start test**.
-5. Watch Path A load rise. After the controller confirms sustained congestion,
-   it installs Path B rules.
-6. The controller verifies the expected flow entries and waits for counters on
-   Path B's unique links to increase. Only then is the switch reported as
-   verified and recovery time recorded.
-7. When the test finishes, packet animation stops. The selected route may stay
-   set to Path B until reset; this does not mean packets are still flowing.
-8. Click **Export CSV** or inspect `results/experiments.csv`.
-9. Reset to Path A before starting a comparison run.
+5. Watch the Path A load measurements and the event log.
+6. If congestion is confirmed, watch for Path B rule verification and Path B counter movement.
+7. Wait for the test to finish. The final selected route may remain Path B even though the sender has stopped.
+8. Export or inspect `results/experiments.csv`.
 
-To compare static and adaptive fairly, use the same offered rate, duration,
-threshold, and initial reset in both runs. Static mode reports congestion but
-keeps the flow on Path A. Adaptive mode may move the flow when the threshold
-logic confirms congestion and the alternate path is eligible.
+### Static comparison
 
-## 9. Dashboard guide
+Reset to Path A, keep all test settings the same, select **Static**, and run the test. The controller can report congestion, but the flow should remain on Path A. Compare the saved results only after confirming each run actually completed.
 
-### Status strip
+---
 
-The top strip says whether the network is offline, waiting for switches, ready,
-running, congested, or finished. During a test it names the controller's
-selected route. After completion it describes the last route as historical and
-states that sending has stopped.
+## 8. Dashboard controls and what they affect
 
-### Traffic offered slider and number
-
-The slider selects the sender's target UDP rate in Mbps. The adjacent number
-box lets you enter an exact value; moving either control updates the other.
-During a running test, **Apply live rate** writes a new sender rate that the
-sender reads within about a quarter second. Before a test, the selected rate is
-used when starting it.
-
-### Run length
-
-The duration is how long the sender sends UDP packets. When it ends, the manager
-stops the processes, finalizes packet loss using the sender summary, and appends
-one result row to the CSV.
-
-### Congestion threshold
-
-This is the utilisation percentage at which a path is considered busy. The
-controller requires three consecutive samples at or above the threshold to
-confirm congestion. That avoids rerouting because of one brief counter spike.
-
-### Routing mode
-
-- **Static:** the controller monitors and logs congestion but does not move the
-  route due to congestion. The traffic stays on the configured path unless a
-  manual reset or route operation changes it.
-- **Adaptive:** after congestion is confirmed on the current route, the
-  controller checks the alternate path. If its measured load is below the
-  threshold and lower than the congested path, it installs the alternate-path
-  rules and verifies traffic movement.
-
-### Buttons
-
-| Button | Effect |
+| Control | Effect |
 |---|---|
-| Start network | Creates the Mininet topology, prints/saves the discovered port map, waits for switches, installs initial Path A rules, and verifies them. |
-| Start test | Resets to Path A with the selected mode/threshold, starts the receiver on `h2`, then the sender on `h1`. |
-| Apply live rate | Changes the active sender rate while a test is running. |
-| Apply settings | Sends the selected routing mode and threshold to the controller. |
-| Reset to Path A | Stops/finalizes an active test as applicable, resets measurements/baselines and controller state, then installs and verifies the initial Path A route. |
-| Stop test | Stops sender and receiver and saves final measurements. |
-| Stop network | Stops the test if necessary and tears down Mininet. |
-| Export CSV | Shows the location of the accumulated `results/experiments.csv` file. |
+| **Start network** | Creates Mininet, discovers ports, waits for switches, and verifies initial Path A rules. |
+| **Start test** | Resets to Path A, starts the receiver on `h2`, then the sender on `h1`. |
+| **Traffic offered** slider and number | Selects the sender's target rate in Mbps. The number field allows precise entry. |
+| **Apply live rate** | Writes a new sender rate while a test is running. The sender checks for changes about every 0.25 seconds. |
+| **Run length** | Sets how long the sender transmits. |
+| **Congestion threshold** | Sets the utilisation level used by the congestion check. |
+| **Routing mode** | Chooses Static or Adaptive controller behavior. |
+| **Apply settings** | Sends the selected mode and threshold to the controller. |
+| **Reset to Path A** | Stops/finalizes a test as needed, clears measurement baselines, and verifies the initial route. |
+| **Stop test** | Stops sender and receiver and finalizes the packet statistics. |
+| **Stop network** | Stops the test if needed and tears down Mininet. |
+| **Export CSV** | Reports the accumulated experiment-results file location. |
 
-### Topology visualization
+The offered rate is not the utilisation percentage. Offered rate is what the sender tries to inject. Utilisation comes from measured switch counters and the configured capacity of a link.
 
-The topology has sender `h1`, switches `s1` to `s4`, and receiver `h2`.
-Path A goes through `s2`; Path B goes through `s3`. The highlighted route is
-the selected route while traffic is running. Orange indicates confirmed
-congestion on the active route. After a successful route change, the new route
-is verified using switch counters. The moving packet markers are a visual aid;
-the underlying proof comes from the real sender/receiver and OpenFlow counters.
+---
 
-### Live measurements
+## 9. Understanding the topology animation and live measurements
 
-Path A and Path B values are displayed together because the controller samples
-both alternatives. They are not two competing receiver-throughput numbers.
-Each path load is its busiest measured directed link, normalized by that link's
-configured capacity. The other route can have a nonzero value from background,
-control, or transition traffic; the selected route comes from controller flow
-state and counter verification.
+The diagram shows `h1` as sender, `h2` as receiver, and switches `s1` through `s4`. Path A passes through `s2`; Path B passes through `s3`.
 
-### Metric formulas
+Both path-load values can be shown at once because the controller monitors both alternatives. They are not two receiver-throughput values. The selected route is identified separately by the controller's active flow state.
 
-**Directional link rate** (computed between two switch counter samples):
+The dashboard's moving packet markers are an illustration. They do not prove packets took a route. Proof comes from the real UDP sender/receiver, installed OpenFlow rules, and increasing counters on the route's unique links.
+
+After a test ends, live traffic stops. The controller may retain the last selected route until reset. A highlighted route after completion does not mean packets are still moving.
+
+---
+
+## 10. Measurements and formulas
+
+### 10.1 Offered rate
+
+The offered rate is the sender's target transmission rate.
+
+For example, selecting 3 Mbps asks the sender to offer approximately 3 million bits per second. It does not promise that the receiver will get 3 Mbps.
+
+### 10.2 Link rate from byte counters
+
+The controller samples a switch-port byte counter twice. The difference is how many bytes passed during the time between samples.
 
 ```text
-rate_bps = (current_bytes - previous_bytes) * 8 / elapsed_seconds
+byte_delta = current_bytes - previous_bytes
+
+rate_bps = (byte_delta * 8) / elapsed_seconds
 ```
 
-**Link utilisation:**
+The factor 8 converts bytes to bits.
+
+### 10.3 Link utilisation
 
 ```text
-utilisation_percent = rate_bps / (configured_capacity_mbps * 1,000,000) * 100
+capacity_bps = capacity_mbps * 1,000,000
+
+utilisation_percent = (rate_bps / capacity_bps) * 100
 ```
 
-Utilisation can exceed 100% if the observed counter rate briefly exceeds the
-configured emulated capacity, due to sample timing, burstiness, counter
-direction, or emulator scheduling. It means the measured rate exceeded the
-denominator for that interval; it is not a display cap. Interpret short spikes
-with the configured bottleneck and the consecutive-sample threshold.
+**Worked example:** a measured 1.5 Mbps on a 2 Mbps link is:
 
-**Path utilisation:**
+```text
+1.5 / 2 * 100 = 75% utilisation
+```
+
+That 75% is a comparison between measured bit rate and configured link capacity. It is not packet loss, and it is not the slider's Mbps value expressed as a percent.
+
+### 10.4 Why a path load uses the maximum link value
 
 ```text
 path_utilisation = maximum utilisation among the measured forward links on that path
 ```
 
-Using the maximum identifies the bottleneck link; averaging could hide one
-congested link behind less-loaded links.
+The maximum represents the busiest link. An average could hide one bottleneck behind several quieter links.
 
-**Receiver throughput:**
+The underlying measured percentage should not be silently capped: a brief reading above 100% means the measured rate exceeded the configured denominator for that sample interval. A display bar may stop at 100%, but the numeric measurement and formula should remain honest.
+
+### 10.5 Congestion threshold and three samples
+
+The threshold is the configured utilisation level that counts as high. The controller requires **three consecutive port-stat samples** at or above that threshold before confirming congestion.
+
+Those three values are three time-based counter measurements. They are not three packets.
+
+Example with a 75% threshold:
+
+| Sample | Measured active-path load | Consecutive high samples |
+|---:|---:|---:|
+| 1 | 78% | 1 |
+| 2 | 81% | 2 |
+| 3 | 79% | 3: congestion confirmed |
+
+If a sample falls below the threshold before confirmation, the consecutive count is reset. Requiring consecutive samples helps prevent a single short spike from causing a route change.
+
+### 10.6 Receiver throughput
 
 ```text
-received_bytes * 8 / measured_seconds / 1,000,000 = Mbps
+receiver_mbps = (received_bytes * 8) / measured_seconds / 1,000,000
 ```
 
-The receiver measures packet arrivals at `h2`. This is delivered throughput,
-which can be lower than the sender's offered rate because of link limits,
-queuing, packet loss, or VM scheduling.
+This measures data that arrived at `h2`. It may be lower than the offered rate because of the path bottleneck, packet loss, queuing, or VM scheduling.
 
-**Packet loss** (final value, after sender completes):
+### 10.7 Packet counts and loss
+
+Each UDP packet carries a sequence number. The receiver records unique arrivals, duplicates, and out-of-order arrivals separately.
+
+Final loss is calculated after the sender finishes, so a temporary sequence gap is not mistaken for a lost packet while a delayed packet might still arrive.
 
 ```text
 lost_packets = sent_packets - unique_expected_packets_received
-loss_percent = lost_packets / sent_packets * 100
+
+loss_percent = (lost_packets / sent_packets) * 100
 ```
 
-Temporary sequence gaps are not called losses during the run because later UDP
-packets could still arrive. Duplicates and out-of-order arrivals are counted
-separately by the receiver.
+### 10.8 Recovery time and rule time
 
-**Recovery time:** elapsed time from confirmed congestion to verified byte
-counter increase on the alternate path. Controller rule-installation duration
-is recorded separately; the two numbers describe different parts of recovery.
+Recovery time measures from confirmed congestion until counters verify traffic on the alternate path.
 
-## 10. Files and saved results
+Rule-installation time measures the forwarding-rule installation and verification stage. The project records them separately because they describe different parts of a reroute.
+
+---
+
+## 11. Ports and files to know
+
+Three port numbers serve different purposes:
+
+| Port | Protocol | Purpose |
+|---:|---|---|
+| 5001 | UDP | Application packets from sender `h1` to receiver `h2` |
+| 6653 | OpenFlow over TCP | OVS switch connections to OS-Ken |
+| 8765 | HTTP | Browser dashboard and experiment-manager API |
+
+Important files:
 
 ```text
-controller.py                 OS-Ken SDN controller
-topology.py                   Mininet topology, link rates, port discovery
-flow_rules.py                 OpenFlow forwarding rules for Path A and Path B
-metrics.py                    Counter rate and utilisation calculations
-experiment_manager.py         Mininet/test lifecycle, HTTP API, CSV output
-udp_sender.py                 Numbered, rate-limited UDP sender
-udp_receiver.py                UDP receiver and packet statistics
-raw_demo.py                    Optional terminal interface to manager API
+controller.py                 OS-Ken controller
+topology.py                   Mininet topology, link capacities, port discovery
+flow_rules.py                 OpenFlow rules for both routes
+metrics.py                    Counter-rate and utilisation calculations
+experiment_manager.py         Network lifecycle, HTTP API, tests, CSV results
+udp_sender.py                 Numbered and rate-limited UDP sender
+udp_receiver.py               UDP receiver and packet statistics
+raw_demo.py                   Optional terminal control client
 web/index.html                 Dashboard structure
-web/app.css                   Dashboard layout and styling
-web/app.js                    Controls, polling, status and packet animation
-run/port_map.json              Discovered interface and switch port map
-run/controller_state.json     Controller heartbeat and measurements
-run/receiver_stats.json        Live/final receiver snapshot for current run
-results/experiments.csv        Accumulated completed test results
+web/app.css                    Dashboard presentation
+web/app.js                     Dashboard polling, controls, and animation
+run/port_map.json              Interfaces and switch ports discovered at runtime
+run/controller_state.json     Controller measurements and route status
+run/receiver_stats.json        Current receiver snapshot
+results/experiments.csv        Accumulated completed experiment results
 ```
 
-The `run/` data is temporary experiment state. The CSV is the reportable
-measurement record. Back it up before cleaning or replacing experiment files.
+The `run/` files are temporary experiment state. The CSV is the accumulated experiment record. Back up results before replacing or cleaning experiment files.
 
-## 11. Wireshark demonstration
+---
 
-Start Mininet first, then open Wireshark inside Kali. Select an interface that
-shows Mininet traffic and use the display filter:
+## 12. CSV results
+
+The manager appends one row for each completed experiment to:
+
+```text
+results/experiments.csv
+```
+
+The dashboard's **Export CSV** button does not create fake data or download a different copy. It confirms the location of this one accumulated file. After a completed run, inspect it from a normal Kali terminal with:
+
+```bash
+cd ~/cn-congestion-aware-traffic-rerouting
+python3 raw_demo.py export
+column -s, -t < results/experiments.csv | less -S
+```
+
+Press `q` to leave the table. To show only the header and the latest two completed runs, use:
+
+```bash
+head -n 1 results/experiments.csv
+tail -n 2 results/experiments.csv
+```
+
+To copy the evidence file to the Kali desktop after the demo:
+
+```bash
+cp results/experiments.csv ~/Desktop/
+```
+
+The actual columns are created in `experiment_manager.py`. They include experiment identity, routing mode, offered and final rates, rate changes, duration, final path, sent/received/lost packets, loss percentage, receiver throughput, both path utilisations, recovery time, rule-installation time, and route-verification timestamps.
+
+Resetting an experiment clears current controller measurements and restores Path A; it is not intended to erase previously completed CSV rows. Use the actual generated CSV as the source for report tables. Do not present illustrative values as measured results.
+
+The CSV is useful for:
+
+- Comparing Static and Adaptive runs with the same settings
+- Comparing delivered throughput and packet loss
+- Recording the final selected route
+- Reporting recovery and rule-installation times
+- Making result tables and charts for the presentation
+
+---
+
+## 13. Wireshark packet evidence
+
+Start Mininet before capturing. In Kali, select a capture interface that sees Mininet traffic and use this display filter:
 
 ```text
 udp.port == 5001
 ```
 
-The sender puts a sequence number and monotonic send timestamp at the start of
-each UDP payload. The capture demonstrates packets on the virtual network; the
-receiver summary and switch counters are used for the project's final
-measurements.
+You can inspect source/destination addresses, UDP port, packet length, arrival time, and the sequence information in the payload.
 
-## 12. Troubleshooting
+A filter only selects packets after capture begins; it does not start a capture by itself.
 
-### `Address already in use` on port 8765
+### Three types of evidence
 
-An experiment manager already owns the local HTTP port. Inspect and stop that
-listener, then start exactly one manager:
+| Evidence | What it supports |
+|---|---|
+| Dashboard | Current experiment state and reported measurements |
+| OpenFlow flow entries and switch counters | Controller rule installation and traffic movement between paths |
+| Wireshark | Actual UDP packets on the virtual network |
+
+Use the switch rules and counters to prove rerouting. The dashboard animation alone is not proof.
+
+---
+
+## 14. Troubleshooting
+
+### Port 8765 is already in use
+
+An experiment manager may already be running:
 
 ```bash
 sudo fuser -v 8765/tcp
 sudo fuser -k 8765/tcp
-sudo python3 experiment_manager.py
 ```
+
+Then start one manager from the project directory.
 
 ### `RTNETLINK answers: File exists`
 
-Old Mininet interfaces remain after an interrupted run. Stop the manager and
-run:
+Old Mininet interfaces may remain after an interrupted run. Stop the manager, then run:
 
 ```bash
 sudo mn -c
 ```
 
-Then restart the controller and manager and click Start network once.
+Start the controller and manager again, then start the network once from the dashboard.
 
 ### Controller does not connect
 
-Check Terminal 1 is still running, that it listens on port 6653, and that the
-manager started the switches with the expected OpenFlow 1.3 configuration.
-Check that all four switch IDs appear as connected before running a test.
+Check that Terminal 1 is still running and listening on port 6653. Wait for all four expected switch IDs to appear before testing.
 
-### Dashboard shows no measurements
+### Dashboard has no live measurements
 
-Check the page is `http://127.0.0.1:8765/`, the manager is running, the network
-is running, and controller status is live. Hard reload the page after a Git
-update with `Ctrl+Shift+R`. A stale measurement should be shown as unavailable,
-not treated as a live zero.
+Check that:
 
-### Test did not reroute
+1. Firefox is open at `http://127.0.0.1:8765/`.
+2. The experiment manager is running.
+3. The Mininet network is running.
+4. The controller is live and all switches are connected.
 
-Check that the mode is Adaptive, the offered rate is sufficient to exceed the
-Path A 2 Mbps bottleneck, the selected threshold is reached for three samples,
-and Path B is eligible (below threshold and less loaded). Read the event log for
-flow-rule verification and alternate-path counter verification. Do not call a
-reroute successful based on animation or a log line alone.
+After a Git update, hard-refresh Firefox with `Ctrl+Shift+R`.
 
-## 13. What the team can claim and what needs VM evidence
+### Adaptive run does not reroute
 
-Source code and local tests demonstrate that the topology builder, measurement
-functions, UDP packet accounting, manager API logic, and dashboard assets are
-implemented. They do not prove the full Mininet/OS-Ken experiment worked on a
-particular Kali machine.
+Check that Adaptive mode is selected, the active path really reaches the threshold for three consecutive samples, and the alternate path has eligible measurements. Read the event log and controller output for rule verification and counter movement. Do not treat a moving animation or a route-colour change as proof.
 
-The assignment is experimentally demonstrated when the team saves evidence
-from Kali for all of these:
+---
 
-1. Four OVS switches connect to OS-Ken.
-2. Initial Path A rules are installed and verified.
-3. Real UDP packets arrive at `h2`.
-4. Static mode stays on Path A under the chosen congestion conditions.
-5. Adaptive mode installs Path B rules and Path B counters increase.
-6. Recovery and rule-installation times are recorded separately.
-7. Reset restores Path A and a second run succeeds.
-8. Static and adaptive results are saved in `results/experiments.csv`.
-9. A Wireshark capture or screenshot shows the UDP packets if packet-level
-   evidence is required by the instructor.
+## 15. What to verify before claiming completion
 
-Do not present example metrics as fixed expected values. Rates, packet loss,
-utilisation, and recovery time vary between VM runs; use the CSV generated by
-the actual experiment.
+Code and local tests can show that components are implemented. They cannot prove that the full Mininet and OS-Ken experiment worked on a particular Kali VM. Save VM evidence for each acceptance point:
+
+- [ ] Four OVS switches connect to OS-Ken.
+- [ ] Initial Path A forwarding rules are installed and verified.
+- [ ] Real UDP packets arrive at `h2`.
+- [ ] Static mode stays on Path A during a run that confirms congestion.
+- [ ] Adaptive mode installs Path B rules after congestion is confirmed.
+- [ ] Path B's unique-link counters increase after the route change.
+- [ ] Recovery time and rule-installation time are recorded separately.
+- [ ] Reset restores Path A and a later run also succeeds.
+- [ ] Static and Adaptive results are both saved in the CSV.
+- [ ] A Wireshark capture is saved if packet-level evidence is required.
+
+Do not claim a specific throughput, loss percentage, utilisation, or recovery time until it appears in the team's own completed experiment data.
+
+---
+
+## 16. Short presentation script
+
+> Our project demonstrates congestion-aware traffic rerouting using Software Defined Networking. We built a two-path Mininet network with two hosts and four Open vSwitch switches. A custom Python program sends numbered UDP packets from `h1` to `h2`. The two middle routes have different configured capacities: Path A uses 2 Mbps links and Path B uses 5 Mbps links. OS-Ken reads directional switch-port counters and calculates utilisation from counter changes over time. It requires three consecutive measurements at or above the configured threshold before confirming congestion. In Static mode, congestion is reported while the flow remains on Path A. In Adaptive mode, the controller checks Path B, installs and verifies the forwarding rules, then checks that Path B counters increase. The receiver records throughput and packet delivery, and completed tests are stored in CSV for comparison.
+
+---
+
+## 17. Key points for the viva
+
+### What is SDN?
+
+SDN separates the network's decision-making control plane from the packet-forwarding data plane. In this project, OS-Ken is the controller and Open vSwitch forwards packets.
+
+### What is a bottleneck?
+
+A bottleneck is the lowest-capacity link that limits the route. Path A's 2 Mbps middle links are narrower than its 10 Mbps host links.
+
+### What is a switch counter?
+
+A counter is a running byte or packet total maintained by a switch port. Subtracting two byte-counter readings shows how much traffic passed during the sample interval.
+
+### Why measure direction?
+
+The experiment measures the forward `h1` to `h2` flow. Mixing reverse-direction traffic into the calculation would describe a different traffic direction.
+
+### What is route flapping?
+
+Route flapping is repeated switching between paths. The intended demo should show one verified move from Path A to Path B, then hold that route until reset. If it switches back, inspect the current controller logic and event/counter evidence rather than describing that as desired behavior.
+
+### What does Mininet mean here?
+
+Mininet creates virtual hosts, switches, links, and interfaces on Linux. The UDP application sends real packets through that emulated topology. It is a network emulation, not a test on physical routers.
+
+### Which ports matter?
+
+- UDP `5001`: sender to receiver application traffic
+- TCP `6653`: OpenFlow connection between OVS and OS-Ken
+- HTTP `8765`: browser dashboard and experiment-manager API
+
+---
+
+## Final reminders
+
+1. **OS-Ken decides; OVS forwards.**
+2. **Congestion is calculated from switch-counter changes and link capacity.**
+3. **Three samples means three time-based measurements, not three packets.**
+4. **A reroute is successful only after rules and alternate-path counter movement are verified.**
+5. **Use the team's own CSV and Kali evidence when presenting results.**
