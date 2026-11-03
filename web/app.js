@@ -9,6 +9,11 @@
   let routeChangeUntil = 0;
   let animationStarted = performance.now();
   let showCurrentRunOnly = true;
+  // A visual sample is deliberately held until the controller completes the
+  // next counter sample.  That prevents the numbers from changing before the
+  // route colour and packet stream describe the same network state.
+  let visualSample = null;
+  let visibleState = null;
 
   const hasNumber = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
   const format = (value, suffix = "", digits = 1) => {
@@ -60,6 +65,44 @@
     } else {
       item.lastElementChild.textContent = "Manager connected · network stopped";
     }
+  }
+
+  function sampleForDisplay(state) {
+    const controller = state.controller || {};
+    const generation = controller.measurement_generation ?? 0;
+    const changed = !visualSample
+      || visualSample.generation !== generation
+      || visualSample.testRunning !== state.test_running
+      || visualSample.networkRunning !== state.network_running;
+    if (changed) {
+      visualSample = {
+        generation,
+        testRunning: state.test_running,
+        networkRunning: state.network_running,
+        path: controller.active_path || "A",
+        congested: Boolean(controller.congestion_active),
+        loads: { ...(state.path_utilisation_percent || {}) },
+        links: { ...(state.links || {}) },
+        receiver: state.receiver_live ? { ...state.receiver_live } : null,
+      };
+      if (visualSample.path !== activeRoute) {
+        activeRoute = visualSample.path;
+        routeChangeUntil = Date.now() + 1400;
+      }
+      // Restart the packet pattern exactly when this visual sample changes.
+      animationStarted = performance.now();
+    }
+    return {
+      ...state,
+      path_utilisation_percent: visualSample.loads,
+      links: visualSample.links,
+      receiver_live: visualSample.receiver,
+      controller: state.controller ? {
+        ...state.controller,
+        active_path: visualSample.path,
+        congestion_active: visualSample.congested,
+      } : state.controller,
+    };
   }
 
   function routeDescription(state) {
@@ -122,11 +165,6 @@
     const controller = state.controller || {};
     const path = controller.active_path || "A";
     const congested = Boolean(controller.congestion_active);
-    if (path !== activeRoute) {
-      activeRoute = path;
-      routeChangeUntil = Date.now() + 3500;
-      animationStarted = performance.now();
-    }
     const routeA = $("path-a"), routeB = $("path-b");
     routeA.className.baseVal = "route"; routeB.className.baseVal = "route";
     if (state.test_running) {
@@ -136,8 +174,8 @@
       if (Date.now() < routeChangeUntil && !congested) active.classList.add("verified");
     }
     const loads = state.path_utilisation_percent || {};
-    setText("path-a-label", `Path A · ${percent(loads.A)}`);
-    setText("path-b-label", `Path B · ${percent(loads.B)}`);
+    setText("path-a-label", `Path A  ·  ${percent(loads.A)}`);
+    setText("path-b-label", `Path B  ·  ${percent(loads.B)}`);
     const note = !state.network_running ? "Start the network to show the actual topology measurements." : !state.test_running && state.last_result ? `The test is complete. Path ${path} was the final selected route; the gray paths and zero live load mean traffic has stopped.` : congested ? `Congestion is confirmed on Path ${path}: orange packet dots show the busy route while the controller verifies its decision.` : `Path ${path} is highlighted because it currently carries the selected UDP flow.`;
     setText("route-caption", note);
   }
@@ -188,21 +226,24 @@
 
   function animatePacket(now) {
     const stream = $("packet-stream");
-    const running = latestState && latestState.test_running;
+    const running = visibleState && visibleState.test_running;
     if (!running) { if (stream.childElementCount) stream.replaceChildren(); requestAnimationFrame(animatePacket); return; }
-    const congested = Boolean((latestState.controller || {}).congestion_active);
+    const congested = Boolean((visibleState.controller || {}).congestion_active);
     stream.classList.toggle("packet-stream-congested", congested);
-    while (stream.children.length < 7) {
+    while (stream.children.length < 8) {
       const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       dot.setAttribute("class", stream.children.length === 0 ? "packet-dot lead" : "packet-dot");
-      dot.setAttribute("r", stream.children.length === 0 ? "4.8" : "3.2");
+      dot.setAttribute("r", stream.children.length === 0 ? "7.5" : "5.3");
       stream.append(dot);
     }
     const elapsed = now - animationStarted;
     [...stream.children].forEach((dot, index) => {
-      const spacing = congested ? 225 : 520;
-      const fraction = ((elapsed - index * spacing) % 3900 + 3900) % 3900 / 3900;
-      const [x, y] = pointOnRoute(activeRoute === "B" ? [[130,184],[286,184],[452,273],[650,273],[790,184]] : [[130,184],[286,184],[452,95],[650,95],[790,184]], fraction);
+      const spacing = congested ? 270 : 490;
+      const duration = congested ? 4100 : 5000;
+      const fraction = ((elapsed - index * spacing) % duration + duration) % duration / duration;
+      const [x, y] = pointOnRoute(activeRoute === "B"
+        ? [[190,252],[300,252],[510,386],[770,386],[930,252]]
+        : [[190,252],[300,252],[510,118],[770,118],[930,252]], fraction);
       dot.setAttribute("cx", x); dot.setAttribute("cy", y);
     });
     requestAnimationFrame(animatePacket);
@@ -220,7 +261,8 @@
 
   function render(state) {
     latestState = state;
-    updateConnection(state); updateHeader(state); updateMeasurements(state); updateTopology(state); updateLastResult(state.last_result); updateEvents(state); updateControls(state);
+    visibleState = sampleForDisplay(state);
+    updateConnection(state); updateHeader(visibleState); updateMeasurements(visibleState); updateTopology(visibleState); updateLastResult(state.last_result); updateEvents(state); updateControls(state);
   }
 
   async function poll() {

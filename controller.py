@@ -97,6 +97,11 @@ class CongestionController(app_manager.OSKenApp):
         self.sample_ports = {}
         self.sample_started_ns = None
         self.last_port_request_ns = 0
+        # This increases only after a complete switch-counter sample has been
+        # processed.  The web dashboard uses it to update its route colour,
+        # packet animation and displayed measurements together.
+        self.measurement_generation = 0
+        self.measurement_sampled_at = None
 
         self.port_map_file = ROOT / "run/port_map.json"
         self.command_file = ROOT / "run/controller_command.json"
@@ -333,6 +338,8 @@ class CongestionController(app_manager.OSKenApp):
         self.previous_link_counters.clear()
         self.link_measurements.clear()
         self.latest_path_utilisation = {"A": None, "B": None}
+        self.measurement_generation = 0
+        self.measurement_sampled_at = None
         self.high_samples = 0
         self.low_samples = 0
         self.congestion_active = False
@@ -388,6 +395,8 @@ class CongestionController(app_manager.OSKenApp):
         self.latest_path_utilisation = {"A": None, "B": None}
         self.last_reroute_ns = 0
         self.congestion_rerouted = False
+        self.measurement_generation = 0
+        self.measurement_sampled_at = None
         self.last_error = None
         self.transition = None
         self.candidate_path = None
@@ -499,6 +508,10 @@ class CongestionController(app_manager.OSKenApp):
 
         self.verify_path_movement()
         self.evaluate_congestion()
+        # Publish one coherent snapshot.  Route decisions made above and the
+        # counter values that caused them are now visible as the same sample.
+        self.measurement_generation += 1
+        self.measurement_sampled_at = now_iso()
         self.sample_started_ns = None
 
     def evaluate_congestion(self):
@@ -815,6 +828,8 @@ class CongestionController(app_manager.OSKenApp):
             "last_route_timing": self.last_route_timing,
             "last_congestion_route_timing": self.last_congestion_route_timing,
             "path_utilisation_percent": self.latest_path_utilisation,
+            "measurement_generation": self.measurement_generation,
+            "measurement_sampled_at": self.measurement_sampled_at,
             "links": path_measurements,
             "last_error": self.last_error,
             "command_id": self.last_command_id,
