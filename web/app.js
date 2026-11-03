@@ -21,6 +21,7 @@
     return hasNumber(value) ? `${number.toFixed(digits)}${suffix}` : "—";
   };
   const percent = (value) => format(value, "%", 1);
+  const displayedPercent = (value) => hasNumber(value) && Number(value) >= 100 ? "100%+" : percent(value);
   const selectedMode = () => document.querySelector("input[name=mode]:checked").value;
   const clamp = (number, low, high) => Math.max(low, Math.min(high, number));
   const setText = (id, value) => { $(id).textContent = value; };
@@ -124,7 +125,11 @@
 
   function updateMeter(name, load, threshold) {
     const value = Number(load);
-    setText(`path-${name}-load`, hasNumber(load) ? percent(value) : "Waiting for traffic");
+    const label = `path-${name}-load`;
+    setText(label, hasNumber(load) ? displayedPercent(value) : "Waiting for traffic");
+    $(label).title = hasNumber(load) && value > 100
+      ? `Raw counter calculation: ${percent(value)}. The link is saturated; short sample intervals can report a burst above its configured capacity.`
+      : "";
     const meter = $(`path-${name}-meter`);
     meter.style.width = hasNumber(load) ? `${clamp(value, 0, 100)}%` : "0%";
     meter.classList.toggle("alert", hasNumber(load) && value >= threshold);
@@ -155,8 +160,11 @@
         .filter(([linkName, sample]) => pathLinks.has(linkName) && sample.fresh && hasNumber(sample.rate_bps) && hasNumber(sample.capacity_mbps))
         .map(([linkName, sample]) => ({ linkName, ...sample }))
         .sort((left, right) => (right.utilisation_percent || 0) - (left.utilisation_percent || 0))[0];
+      const rawLoad = busiest && Number(busiest.utilisation_percent) > 100
+        ? `${format(busiest.utilisation_percent, "%", 1)} observed (short-interval burst)`
+        : busiest ? format(busiest.utilisation_percent, "%", 1) : null;
       $("formula-" + name.toLowerCase()).textContent = busiest
-        ? `Path ${name}, ${busiest.linkName}: (${Math.round(busiest.rate_bps).toLocaleString()} bps) ÷ (${busiest.capacity_mbps} Mbps × 1,000,000) × 100 = ${format(busiest.utilisation_percent, "%", 1)}`
+        ? `Path ${name}, ${busiest.linkName}: (${Math.round(busiest.rate_bps).toLocaleString()} bps) ÷ (${busiest.capacity_mbps} Mbps × 1,000,000) × 100 = ${rawLoad}`
         : `Path ${name}: waiting for fresh byte-counter samples`;
     }
   }
@@ -174,8 +182,8 @@
       if (Date.now() < routeChangeUntil && !congested) active.classList.add("verified");
     }
     const loads = state.path_utilisation_percent || {};
-    setText("path-a-label", `Path A  ·  ${percent(loads.A)}`);
-    setText("path-b-label", `Path B  ·  ${percent(loads.B)}`);
+    setText("path-a-label", `Path A  ·  ${displayedPercent(loads.A)}`);
+    setText("path-b-label", `Path B  ·  ${displayedPercent(loads.B)}`);
     const note = !state.network_running ? "Start the network to show the actual topology measurements." : !state.test_running && state.last_result ? `The test is complete. Path ${path} was the final selected route; the gray paths and zero live load mean traffic has stopped.` : congested ? `Congestion is confirmed on Path ${path}: orange packet dots show the busy route while the controller verifies its decision.` : `Path ${path} is highlighted because it currently carries the selected UDP flow.`;
     setText("route-caption", note);
   }
@@ -242,8 +250,8 @@
       const duration = congested ? 4100 : 5000;
       const fraction = ((elapsed - index * spacing) % duration + duration) % duration / duration;
       const [x, y] = pointOnRoute(activeRoute === "B"
-        ? [[190,252],[300,252],[510,386],[770,386],[930,252]]
-        : [[190,252],[300,252],[510,118],[770,118],[930,252]], fraction);
+        ? [[200,256],[265,256],[405,290],[475,390],[615,390],[725,290],[865,256],[930,256]]
+        : [[200,256],[265,256],[405,222],[475,130],[615,130],[725,222],[865,256],[930,256]], fraction);
       dot.setAttribute("cx", x); dot.setAttribute("cy", y);
     });
     requestAnimationFrame(animatePacket);

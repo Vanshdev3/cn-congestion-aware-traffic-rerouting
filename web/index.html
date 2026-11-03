@@ -73,18 +73,18 @@
           <p class="legend"><i class="legend-active"></i> selected route <i class="legend-alert"></i> congestion <i class="legend-idle"></i> other route</p>
         </div>
         <div class="topology-wrap">
-          <svg class="topology" viewBox="0 0 1120 500" role="img" aria-label="Two-path Mininet topology from sender h1 through OpenFlow switches to receiver h2">
-            <path id="path-a" class="route" d="M190 252 L300 252 L510 118 L770 118 L930 252"></path>
-            <path id="path-b" class="route" d="M190 252 L300 252 L510 386 L770 386 L930 252"></path>
-            <g class="node host"><rect x="65" y="192" width="125" height="120" rx="12"></rect><rect class="screen" x="89" y="214" width="77" height="47" rx="4"></rect><path class="stand" d="M127 261v23m-24 0h48"></path><text x="127" y="291">h1</text><text class="device-kind" x="127" y="306">UDP sender</text></g>
-            <g class="node switch"><rect x="300" y="192" width="120" height="120" rx="12"></rect><path class="switch-mark" d="M328 228h64m-46-14-18 14 18 14m28-28 18 14-18 14"></path><text x="360" y="275">s1</text><text class="device-kind" x="360" y="294">OpenFlow switch</text></g>
-            <g class="node switch"><rect x="450" y="58" width="120" height="120" rx="12"></rect><path class="switch-mark" d="M478 94h64m-46-14-18 14 18 14m28-28 18 14-18 14"></path><text x="510" y="141">s2</text><text class="device-kind" x="510" y="160">OpenFlow switch</text></g>
-            <g class="node switch"><rect x="450" y="326" width="120" height="120" rx="12"></rect><path class="switch-mark" d="M478 362h64m-46-14-18 14 18 14m28-28 18 14-18 14"></path><text x="510" y="409">s3</text><text class="device-kind" x="510" y="428">OpenFlow switch</text></g>
-            <g class="node switch"><rect x="710" y="192" width="120" height="120" rx="12"></rect><path class="switch-mark" d="M738 228h64m-46-14-18 14 18 14m28-28 18 14-18 14"></path><text x="770" y="275">s4</text><text class="device-kind" x="770" y="294">OpenFlow switch</text></g>
-            <g class="node host"><rect x="930" y="192" width="125" height="120" rx="12"></rect><rect class="screen" x="954" y="214" width="77" height="47" rx="4"></rect><path class="stand" d="M992 261v23m-24 0h48"></path><text x="992" y="291">h2</text><text class="device-kind" x="992" y="306">UDP receiver</text></g>
+          <svg class="topology" viewBox="0 0 1120 500" role="img" aria-label="Two-path Mininet topology from sender h1 through four OpenFlow switches to receiver h2">
+            <path id="path-a" class="route" d="M200 256 L265 256 L405 222 L475 130 L615 130 L725 222 L865 256 L930 256"></path>
+            <path id="path-b" class="route" d="M200 256 L265 256 L405 290 L475 390 L615 390 L725 290 L865 256 L930 256"></path>
+            <g class="node host"><rect x="60" y="200" width="140" height="112" rx="10"></rect><text x="130" y="246">h1</text><text class="device-kind" x="130" y="278">UDP sender</text></g>
+            <g class="node switch"><rect x="265" y="200" width="140" height="112" rx="10"></rect><text x="335" y="246">s1</text><text class="device-kind" x="335" y="278">Ingress switch</text></g>
+            <g class="node switch"><rect x="475" y="74" width="140" height="112" rx="10"></rect><text x="545" y="120">s2</text><text class="device-kind" x="545" y="152">Path A · 2 Mbps</text></g>
+            <g class="node switch"><rect x="475" y="334" width="140" height="112" rx="10"></rect><text x="545" y="380">s3</text><text class="device-kind" x="545" y="412">Path B · 5 Mbps</text></g>
+            <g class="node switch"><rect x="725" y="200" width="140" height="112" rx="10"></rect><text x="795" y="246">s4</text><text class="device-kind" x="795" y="278">Egress switch</text></g>
+            <g class="node host"><rect x="930" y="200" width="140" height="112" rx="10"></rect><text x="1000" y="246">h2</text><text class="device-kind" x="1000" y="278">UDP receiver</text></g>
             <g id="packet-stream" aria-hidden="true"></g>
-            <g class="route-label"><text x="640" y="48" id="path-a-label">Path A · —</text><text x="640" y="478" id="path-b-label">Path B · —</text></g>
-            <g class="link-label"><text x="244" y="236">10 Mbps</text><text x="398" y="162">2 Mbps</text><text x="640" y="102">2 Mbps</text><text x="398" y="354">5 Mbps</text><text x="640" y="402">5 Mbps</text><text x="854" y="236">10 Mbps</text></g>
+            <g class="route-label"><text x="545" y="45" id="path-a-label">Path A · —</text><text x="545" y="478" id="path-b-label">Path B · —</text></g>
+            <g class="link-label"><text x="232" y="230">10 Mbps</text><text x="435" y="154">2 Mbps</text><text x="670" y="112">2 Mbps</text><text x="435" y="358">5 Mbps</text><text x="670" y="408">5 Mbps</text><text x="896" y="230">10 Mbps</text></g>
           </svg>
         </div>
         <p class="route-caption" id="route-caption">Both paths are shown. The highlighted line is the path chosen by the controller.</p>
@@ -106,7 +106,7 @@
           <p>The busiest fresh forward link on each route:</p>
           <code id="formula-a">Path A: waiting for fresh byte-counter samples</code>
           <code id="formula-b">Path B: waiting for fresh byte-counter samples</code>
-          <small>Utilisation = (byte-counter change × 8 ÷ sample time) ÷ (link capacity in Mbps × 1,000,000) × 100. The bar is capped visually; the measured percentage is shown unchanged.</small>
+          <small>Utilisation = (byte-counter change × 8 ÷ sample time) ÷ (link capacity in Mbps × 1,000,000) × 100. The main display uses 100%+ for a saturated link; the formula line retains any raw counter overshoot.</small>
         </details>
       </aside>
     </section>

@@ -437,6 +437,10 @@ cp results/experiments.csv ~/Desktop/
 
 The actual columns are created in `experiment_manager.py`. They include experiment identity, routing mode, offered and final rates, rate changes, duration, final path, sent/received/lost packets, loss percentage, receiver throughput, both path utilisations, recovery time, rule-installation time, and route-verification timestamps.
 
+### Why a raw utilisation calculation can be above 100%
+
+The configured capacity is the intended bottleneck rate. The controller calculates a rate from byte-counter differences over a short time interval. Linux scheduling, packet bursts already queued before traffic control applies, and the exact start/end of a one-second sample can briefly produce a calculated rate slightly above that configured capacity. This does **not** mean the physical link became faster. It means the short counter window included a burst. The dashboard therefore shows `100%+` as the saturated state in its main view, while the expandable formula card preserves the raw calculated value for technical evidence.
+
 Resetting an experiment clears current controller measurements and restores Path A; it is not intended to erase previously completed CSV rows. Use the actual generated CSV as the source for report tables. Do not present illustrative values as measured results.
 
 The CSV is useful for:
